@@ -6,8 +6,16 @@ export default defineManifest({
   version: '0.0.1',
   description:
     'Match URLs and hide or overlay specific DOM regions (ads, promos, custom rules).',
+  permissions: ['storage', 'activeTab'],
+  icons: {
+    '16': 'icons/icon-128.png',
+    '32': 'icons/icon-128.png',
+    '48': 'icons/icon-128.png',
+    '128': 'icons/icon-128.png',
+  },
   action: {
     default_popup: 'index.html',
+    default_title: 'Tinted Spectacles',
   },
   content_scripts: [
     {
