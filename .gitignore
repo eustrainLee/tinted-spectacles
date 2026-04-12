@@ -1,6 +1,11 @@
 node_modules/
 dist/
 .chrome-debug-profile/
+
+# BMad Method (https://docs.bmad-method.org/) - reinstall with: npx bmad-method install ...
+_bmad/
+_bmad-output/
+.cursor/skills/
 *.local
 .DS_Store
 Thumbs.db
