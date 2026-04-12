@@ -1,5 +1,6 @@
 node_modules/
 dist/
+.chrome-debug-profile/
 *.local
 .DS_Store
 Thumbs.db
