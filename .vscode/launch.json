@@ -1,0 +1,33 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch Chrome (debug port 9222)",
+      "type": "chrome",
+      "request": "launch",
+      "windows": {
+        "runtimeExecutable": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+      },
+      "osx": {
+        "runtimeExecutable": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+      },
+      "linux": {
+        "runtimeExecutable": "/usr/bin/google-chrome"
+      },
+      "runtimeArgs": [
+        "--remote-debugging-port=9222",
+        "--user-data-dir=${workspaceFolder}/.chrome-debug-profile"
+      ],
+      "url": "https://example.com",
+      "webRoot": "${workspaceFolder}"
+    },
+    {
+      "name": "Attach to Chrome (pick tab)",
+      "type": "chrome",
+      "request": "attach",
+      "port": 9222,
+      "webRoot": "${workspaceFolder}",
+      "targetSelection": "pick"
+    }
+  ]
+}
