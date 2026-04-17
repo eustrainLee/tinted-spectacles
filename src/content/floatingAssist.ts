@@ -11,10 +11,13 @@ import { getSiteMap, setFabHidden, setFabPosition } from '../lib/siteSettings'
 
 const HOST_ID = 'tinted-spectacles-fab-host'
 const DRAG_THRESHOLD_PX = 6
+const VIEW_MARGIN = 16
+const PANEL_GAP = 8
+const PANEL_MAX_WIDTH = 280
 
 let fabHost: HTMLElement | null = null
 let shadowRoot: ShadowRoot | null = null
-let wrapEl: HTMLElement | null = null
+let anchorEl: HTMLElement | null = null
 let summarySiteEl: HTMLElement | null = null
 let summaryPresetEl: HTMLElement | null = null
 let panelEl: HTMLElement | null = null
@@ -23,8 +26,8 @@ let mountAbort: AbortController | null = null
 let resizeTimer: number | null = null
 
 let storageHostnameKey = ''
-let wrapLeft = 0
-let wrapTop = 0
+let anchorLeft = 0
+let anchorTop = 0
 
 function positionEquals(a: FabPosition | undefined, b: FabPosition): boolean {
   if (!a) {
@@ -45,22 +48,28 @@ function buildToggleAriaLabel(hostname: string, presetId: SpectacleId): string {
   return `Tinted Spectacles assist for ${hostname}, preset ${presetLabel}. Drag to move. Opens a short summary panel.`
 }
 
-function setWrapPosition(left: number, top: number): void {
-  if (!wrapEl) {
+function getAnchorSize(): { width: number; height: number } {
+  if (toggleBtn) {
+    return { width: toggleBtn.offsetWidth, height: toggleBtn.offsetHeight }
+  }
+  return { width: 44, height: 44 }
+}
+
+function setAnchorPosition(left: number, top: number): void {
+  if (!anchorEl) {
     return
   }
-  wrapLeft = left
-  wrapTop = top
-  wrapEl.style.left = `${Math.round(left)}px`
-  wrapEl.style.top = `${Math.round(top)}px`
+  anchorLeft = left
+  anchorTop = top
+  anchorEl.style.left = `${Math.round(left)}px`
+  anchorEl.style.top = `${Math.round(top)}px`
 }
 
 function applyLayoutFromRecord(record: SiteSettingRecord): void {
-  if (!wrapEl) {
+  if (!anchorEl) {
     return
   }
-  const width = wrapEl.offsetWidth
-  const height = wrapEl.offsetHeight
+  const { width, height } = getAnchorSize()
   const vw = window.innerWidth
   const vh = window.innerHeight
   if (record.fabPosition) {
@@ -72,11 +81,71 @@ function applyLayoutFromRecord(record: SiteSettingRecord): void {
       vw,
       vh,
     )
-    setWrapPosition(clamped.left, clamped.top)
+    setAnchorPosition(clamped.left, clamped.top)
     return
   }
   const defaults = defaultFabTopLeft(width, height, vw, vh)
-  setWrapPosition(defaults.left, defaults.top)
+  setAnchorPosition(defaults.left, defaults.top)
+}
+
+function layoutPanelNearToggle(): void {
+  if (!panelEl || !toggleBtn || panelEl.hidden) {
+    return
+  }
+
+  const tr = toggleBtn.getBoundingClientRect()
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const panelWidth = Math.min(PANEL_MAX_WIDTH, vw - VIEW_MARGIN * 2)
+
+  panelEl.style.width = `${Math.round(panelWidth)}px`
+  const panelHeight = panelEl.offsetHeight
+
+  const spaceBelow = vh - tr.bottom - VIEW_MARGIN
+  const spaceAbove = tr.top - VIEW_MARGIN
+  let top: number
+  if (spaceBelow >= panelHeight + PANEL_GAP || spaceBelow >= spaceAbove) {
+    top = tr.bottom + PANEL_GAP
+  } else {
+    top = tr.top - panelHeight - PANEL_GAP
+  }
+  top = Math.min(
+    Math.max(VIEW_MARGIN, top),
+    Math.max(VIEW_MARGIN, vh - VIEW_MARGIN - panelHeight),
+  )
+
+  const toggleCenterX = tr.left + tr.width / 2
+  let left = toggleCenterX - panelWidth / 2
+
+  const nearRight = vw - tr.right <= VIEW_MARGIN + 48
+  const nearLeft = tr.left <= VIEW_MARGIN + 48
+  if (nearRight && !nearLeft) {
+    left = Math.min(tr.right, vw - VIEW_MARGIN) - panelWidth
+  } else if (nearLeft && !nearRight) {
+    left = Math.max(tr.left - panelWidth, VIEW_MARGIN)
+  }
+
+  left = Math.min(
+    Math.max(VIEW_MARGIN, left),
+    Math.max(VIEW_MARGIN, vw - VIEW_MARGIN - panelWidth),
+  )
+
+  panelEl.style.left = `${Math.round(left)}px`
+  panelEl.style.top = `${Math.round(top)}px`
+}
+
+function isEventInsideFabUi(event: PointerEvent): boolean {
+  if (!fabHost) {
+    return false
+  }
+  return event.composedPath().some((node) => {
+    return (
+      node === fabHost ||
+      node === anchorEl ||
+      node === toggleBtn ||
+      node === panelEl
+    )
+  })
 }
 
 function unmountFloatingAssist(): void {
@@ -90,7 +159,7 @@ function unmountFloatingAssist(): void {
   }
   fabHost = null
   shadowRoot = null
-  wrapEl = null
+  anchorEl = null
   summarySiteEl = null
   summaryPresetEl = null
   panelEl = null
@@ -104,6 +173,13 @@ function setPanelOpen(open: boolean): void {
   }
   panelEl.hidden = !open
   toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false')
+  if (open) {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        layoutPanelNearToggle()
+      })
+    })
+  }
 }
 
 function updateSummary(hostname: string, presetId: SpectacleId): void {
@@ -138,17 +214,15 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
       all: initial;
       font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
     }
-    .wrap {
+    .anchor {
       position: fixed;
       left: 0;
       top: 0;
       right: auto;
       bottom: auto;
       z-index: 2147483646;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 8px;
+      display: inline-block;
+      overflow: visible;
     }
     .toggle {
       min-width: 44px;
@@ -172,7 +246,9 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
       outline-offset: 2px;
     }
     .panel {
-      width: min(280px, calc(100vw - 32px));
+      position: fixed;
+      z-index: 2147483647;
+      width: min(${PANEL_MAX_WIDTH}px, calc(100vw - ${VIEW_MARGIN * 2}px));
       padding: 10px 10px 8px;
       border-radius: 12px;
       border: 1px solid #c9ced6;
@@ -248,9 +324,8 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
   `
   shadowRoot.append(style)
 
-  const wrap = document.createElement('div')
-  wrap.className = 'wrap'
-  wrapEl = wrap
+  anchorEl = document.createElement('div')
+  anchorEl.className = 'anchor'
 
   toggleBtn = document.createElement('button')
   toggleBtn.type = 'button'
@@ -314,14 +389,14 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
   toggleBtn.addEventListener(
     'pointerdown',
     (event) => {
-      if (event.button !== 0 || !wrapEl) {
+      if (event.button !== 0 || !anchorEl) {
         return
       }
       dragPointerId = event.pointerId
       dragStartClientX = event.clientX
       dragStartClientY = event.clientY
-      dragOriginLeft = wrapLeft
-      dragOriginTop = wrapTop
+      dragOriginLeft = anchorLeft
+      dragOriginTop = anchorTop
       dragActive = false
       try {
         toggleBtn?.setPointerCapture(event.pointerId)
@@ -335,7 +410,7 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
   toggleBtn.addEventListener(
     'pointermove',
     (event) => {
-      if (dragPointerId !== event.pointerId || !wrapEl) {
+      if (dragPointerId !== event.pointerId || !anchorEl) {
         return
       }
       const dx = event.clientX - dragStartClientX
@@ -347,8 +422,7 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
         dragActive = true
         setPanelOpen(false)
       }
-      const width = wrapEl.offsetWidth
-      const height = wrapEl.offsetHeight
+      const { width, height } = getAnchorSize()
       const next = clampFabTopLeft(
         dragOriginLeft + dx,
         dragOriginTop + dy,
@@ -357,13 +431,13 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
         window.innerWidth,
         window.innerHeight,
       )
-      setWrapPosition(next.left, next.top)
+      setAnchorPosition(next.left, next.top)
     },
     { signal },
   )
 
   const finishDrag = (event: PointerEvent): void => {
-    if (dragPointerId !== event.pointerId || !wrapEl) {
+    if (dragPointerId !== event.pointerId || !anchorEl) {
       return
     }
     try {
@@ -372,17 +446,16 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
       // ignore
     }
     if (dragActive) {
-      const width = wrapEl.offsetWidth
-      const height = wrapEl.offsetHeight
+      const { width, height } = getAnchorSize()
       const snapped = snapFabTopLeftToEdges(
-        wrapLeft,
-        wrapTop,
+        anchorLeft,
+        anchorTop,
         width,
         height,
         window.innerWidth,
         window.innerHeight,
       )
-      setWrapPosition(snapped.left, snapped.top)
+      setAnchorPosition(snapped.left, snapped.top)
       suppressNextClick = true
       void setFabPosition(storageHostnameKey, snapped)
     }
@@ -410,8 +483,8 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
     { signal },
   )
 
-  wrap.append(toggleBtn, panelEl)
-  shadowRoot.append(wrap)
+  anchorEl.append(toggleBtn)
+  shadowRoot.append(anchorEl, panelEl)
 
   const escapeHandler = (event: KeyboardEvent): void => {
     if (event.key !== 'Escape' || !panelEl || panelEl.hidden) {
@@ -421,25 +494,41 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
   }
   window.addEventListener('keydown', escapeHandler, { signal })
 
+  const onOutsidePointerDown = (event: PointerEvent): void => {
+    if (!panelEl || panelEl.hidden) {
+      return
+    }
+    if (isEventInsideFabUi(event)) {
+      return
+    }
+    setPanelOpen(false)
+  }
+  window.addEventListener('pointerdown', onOutsidePointerDown, {
+    capture: true,
+    signal,
+  })
+
   const scheduleResizeClamp = (): void => {
     clearResizeTimer()
     resizeTimer = window.setTimeout(() => {
       resizeTimer = null
-      if (!wrapEl) {
+      if (!anchorEl) {
         return
       }
-      const width = wrapEl.offsetWidth
-      const height = wrapEl.offsetHeight
+      const { width, height } = getAnchorSize()
       const clamped = clampFabTopLeft(
-        wrapLeft,
-        wrapTop,
+        anchorLeft,
+        anchorTop,
         width,
         height,
         window.innerWidth,
         window.innerHeight,
       )
-      if (clamped.left !== wrapLeft || clamped.top !== wrapTop) {
-        setWrapPosition(clamped.left, clamped.top)
+      if (clamped.left !== anchorLeft || clamped.top !== anchorTop) {
+        setAnchorPosition(clamped.left, clamped.top)
+      }
+      if (panelEl && !panelEl.hidden) {
+        layoutPanelNearToggle()
       }
     }, 120)
   }
@@ -476,9 +565,12 @@ export async function refreshFloatingAssistFromStorage(
     updateSummary(key, record.presetId)
     if (
       record.fabPosition &&
-      !positionEquals(record.fabPosition, { left: wrapLeft, top: wrapTop })
+      !positionEquals(record.fabPosition, { left: anchorLeft, top: anchorTop })
     ) {
       applyLayoutFromRecord(record)
+    }
+    if (panelEl && !panelEl.hidden) {
+      layoutPanelNearToggle()
     }
   } catch {
     unmountFloatingAssist()
