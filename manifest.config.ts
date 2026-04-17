@@ -17,6 +17,10 @@ export default defineManifest({
     default_popup: 'index.html',
     default_title: 'Tinted Spectacles',
   },
+  background: {
+    service_worker: 'src/background/index.ts',
+    type: 'module',
+  },
   content_scripts: [
     {
       matches: ['http://*/*', 'https://*/*'],

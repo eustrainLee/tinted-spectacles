@@ -113,6 +113,18 @@ body {
   color: var(--muted);
 }
 
+.panel__check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.panel__check input {
+  margin: 0;
+}
+
 .panel__actions {
   display: flex;
   flex-wrap: wrap;
@@ -142,6 +154,12 @@ body {
 
 .panel__btn--primary:not(:disabled):hover {
   filter: brightness(1.05);
+}
+
+.panel__btn--ghost {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--panel-border);
 }
 
 .panel__badge {

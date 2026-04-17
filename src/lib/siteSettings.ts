@@ -1,23 +1,54 @@
-const STORAGE_KEY = 'siteSpectacleMap'
+import { normalizeHostname } from './normalizeHostname'
+import type { SpectacleId } from './presets'
+import {
+  STORAGE_KEY,
+  STORAGE_SCHEMA_VERSION,
+  parseSiteSettingsState,
+  type SiteSettingRecord,
+} from './storageSchema'
 
-export async function getSiteMap(): Promise<Record<string, string>> {
+export async function getSiteMap(): Promise<Record<string, SiteSettingRecord>> {
   const data = await chrome.storage.local.get(STORAGE_KEY)
-  const raw = data[STORAGE_KEY]
-  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
-    return { ...(raw as Record<string, string>) }
-  }
-  return {}
+  const parsed = parseSiteSettingsState(data[STORAGE_KEY])
+  return { ...parsed.sites }
 }
 
 export async function setSiteSpectacle(
   hostname: string,
-  spectacleId: string,
+  spectacleId: SpectacleId,
+  fabEnabled: boolean,
 ): Promise<void> {
-  const map = await getSiteMap()
+  const data = await chrome.storage.local.get(STORAGE_KEY)
+  const parsed = parseSiteSettingsState(data[STORAGE_KEY])
+  const sites = { ...parsed.sites }
+  const key = normalizeHostname(hostname)
+
   if (spectacleId === 'none') {
-    delete map[hostname]
+    delete sites[key]
   } else {
-    map[hostname] = spectacleId
+    sites[key] = {
+      presetId: spectacleId,
+      fabEnabled,
+    }
   }
-  await chrome.storage.local.set({ [STORAGE_KEY]: map })
+
+  await chrome.storage.local.set({
+    [STORAGE_KEY]: {
+      schemaVersion: STORAGE_SCHEMA_VERSION,
+      sites,
+    },
+  })
+}
+
+export async function clearSiteSpectacle(hostname: string): Promise<void> {
+  const data = await chrome.storage.local.get(STORAGE_KEY)
+  const parsed = parseSiteSettingsState(data[STORAGE_KEY])
+  const sites = { ...parsed.sites }
+  delete sites[normalizeHostname(hostname)]
+  await chrome.storage.local.set({
+    [STORAGE_KEY]: {
+      schemaVersion: STORAGE_SCHEMA_VERSION,
+      sites,
+    },
+  })
 }
