@@ -1,25 +1,30 @@
 export type ExtensionStatus = 'ok' | 'noMatch' | 'partialFailure' | 'fatal'
 
 export interface ExtensionStatusInfo {
-  shortLabel: string
+  badgeText: string
+  actionTitle: string
   message: string
 }
 
 export const STATUS_INFO: Record<ExtensionStatus, ExtensionStatusInfo> = {
   ok: {
-    shortLabel: 'OK',
+    badgeText: 'ON',
+    actionTitle: 'Tinted Spectacles: rules active',
     message: 'Rules are active on this tab.',
   },
   noMatch: {
-    shortLabel: 'NM',
+    badgeText: '--',
+    actionTitle: 'Tinted Spectacles: no applicable rules',
     message: 'No applicable rules for this tab.',
   },
   partialFailure: {
-    shortLabel: 'PF',
+    badgeText: '!!',
+    actionTitle: 'Tinted Spectacles: partial failure',
     message: 'Some cleanup steps failed. Reload and try again.',
   },
   fatal: {
-    shortLabel: 'FT',
+    badgeText: 'XX',
+    actionTitle: 'Tinted Spectacles: rules unavailable',
     message: 'Rules are unavailable. Reapply settings and reload.',
   },
 }

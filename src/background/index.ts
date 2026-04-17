@@ -15,11 +15,15 @@ async function applyActionStatus(
   const info = STATUS_INFO[status]
   await chrome.action.setBadgeText({
     tabId,
-    text: info.shortLabel,
+    text: info.badgeText,
   })
   await chrome.action.setBadgeBackgroundColor({
     tabId,
     color: '#2D2D34',
+  })
+  await chrome.action.setTitle({
+    tabId,
+    title: info.actionTitle,
   })
 }
 

@@ -176,12 +176,10 @@ export function App() {
         <p className="panel__hint">Enabled by default. You can turn it off anytime.</p>
       </section>
 
-      {runtimeStatus !== 'ok' ? (
-        <section className="panel__section" aria-live="polite">
-          <div className="panel__label">Status</div>
-          <p className="panel__hint">{STATUS_INFO[runtimeStatus].message}</p>
-        </section>
-      ) : null}
+      <section className="panel__section" aria-live="polite">
+        <div className="panel__label">Status</div>
+        <p className="panel__hint">{STATUS_INFO[runtimeStatus].message}</p>
+      </section>
 
       <div className="panel__actions">
         <button
