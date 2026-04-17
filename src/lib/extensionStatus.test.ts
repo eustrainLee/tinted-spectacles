@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   STATUS_INFO,
+  isExtensionStatus,
   isStatusQueryMessage,
   isStatusReportMessage,
 } from './extensionStatus'
@@ -40,5 +41,10 @@ describe('extensionStatus metadata', () => {
     expect(STATUS_INFO.noMatch.badgeText).toBe('--')
     expect(STATUS_INFO.partialFailure.badgeText).toBe('!!')
     expect(STATUS_INFO.fatal.badgeText).toBe('XX')
+  })
+
+  it('exposes strict status type guard', () => {
+    expect(isExtensionStatus('ok')).toBe(true)
+    expect(isExtensionStatus('unknown')).toBe(false)
   })
 })

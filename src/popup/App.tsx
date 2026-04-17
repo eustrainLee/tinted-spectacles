@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { STATUS_INFO, type ExtensionStatus } from '../lib/extensionStatus'
+import {
+  STATUS_INFO,
+  isExtensionStatus,
+  type ExtensionStatus,
+} from '../lib/extensionStatus'
 import { SPECTACLES, type SpectacleId, isSpectacleId } from '../lib/presets'
 import { normalizeHostname } from '../lib/normalizeHostname'
 import { clearSiteSpectacle, getSiteMap, setSiteSpectacle } from '../lib/siteSettings'
@@ -31,6 +35,23 @@ export function App() {
   )
   const [runtimeStatus, setRuntimeStatus] = useState<ExtensionStatus>('noMatch')
 
+  const refreshRuntimeStatus = useCallback(async (): Promise<void> => {
+    const [activeTab] = await chrome.tabs.query({
+      active: true,
+      currentWindow: true,
+    })
+    if (typeof activeTab?.id !== 'number') {
+      return
+    }
+    const response = (await chrome.runtime.sendMessage({
+      type: 'tinted.statusQuery',
+      tabId: activeTab.id,
+    })) as { status?: unknown } | undefined
+    if (isExtensionStatus(response?.status)) {
+      setRuntimeStatus(response.status)
+    }
+  }, [])
+
   useEffect(() => {
     let cancelled = false
     void (async () => {
@@ -57,15 +78,7 @@ export function App() {
         const nextFabEnabled = raw?.fabEnabled ?? true
         setFabEnabled(nextFabEnabled)
         setSavedFabEnabled(nextFabEnabled)
-        if (typeof tab.id === 'number') {
-          const response = (await chrome.runtime.sendMessage({
-            type: 'tinted.statusQuery',
-            tabId: tab.id,
-          })) as { status?: ExtensionStatus } | undefined
-          if (response?.status && response.status in STATUS_INFO) {
-            setRuntimeStatus(response.status)
-          }
-        }
+        await refreshRuntimeStatus()
       } catch {
         if (!cancelled) {
           setHostname(null)
@@ -76,7 +89,7 @@ export function App() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [refreshRuntimeStatus])
 
   const onApply = useCallback(async () => {
     if (!hostname) return
@@ -86,12 +99,13 @@ export function App() {
       setSavedId(selectedId)
       setSavedFabEnabled(fabEnabled)
       setApplyState('ok')
+      await refreshRuntimeStatus()
       window.setTimeout(() => setApplyState('idle'), 1600)
     } catch {
       setApplyState('err')
       window.setTimeout(() => setApplyState('idle'), 2200)
     }
-  }, [fabEnabled, hostname, selectedId])
+  }, [fabEnabled, hostname, refreshRuntimeStatus, selectedId])
 
   const onClear = useCallback(async () => {
     if (!hostname) return
@@ -103,12 +117,13 @@ export function App() {
       setFabEnabled(true)
       setSavedFabEnabled(true)
       setApplyState('ok')
+      await refreshRuntimeStatus()
       window.setTimeout(() => setApplyState('idle'), 1600)
     } catch {
       setApplyState('err')
       window.setTimeout(() => setApplyState('idle'), 2200)
     }
-  }, [hostname])
+  }, [hostname, refreshRuntimeStatus])
 
   const dirty =
     hostname !== null &&
@@ -178,6 +193,7 @@ export function App() {
 
       <section className="panel__section" aria-live="polite">
         <div className="panel__label">Status</div>
+        <div className="panel__status-chip">{STATUS_INFO[runtimeStatus].badgeText}</div>
         <p className="panel__hint">{STATUS_INFO[runtimeStatus].message}</p>
       </section>
 

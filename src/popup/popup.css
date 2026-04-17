@@ -113,6 +113,18 @@ body {
   color: var(--muted);
 }
 
+.panel__status-chip {
+  display: inline-block;
+  min-width: 28px;
+  box-sizing: border-box;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  background: color-mix(in oklab, CanvasText 10%, transparent);
+}
+
 .panel__check {
   display: flex;
   align-items: center;

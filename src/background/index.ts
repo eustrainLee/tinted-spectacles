@@ -19,7 +19,7 @@ async function applyActionStatus(
   })
   await chrome.action.setBadgeBackgroundColor({
     tabId,
-    color: '#2D2D34',
+    color: info.badgeColor,
   })
   await chrome.action.setTitle({
     tabId,
