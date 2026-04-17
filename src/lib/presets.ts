@@ -27,3 +27,8 @@ export const SPECTACLES: readonly SpectaclePreset[] = [
 export function isSpectacleId(value: string): value is SpectacleId {
   return SPECTACLES.some((p) => p.id === value)
 }
+
+export function getSpectacleLabel(id: SpectacleId): string {
+  const match = SPECTACLES.find((p) => p.id === id)
+  return match ? match.label : id
+}

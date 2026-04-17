@@ -6,7 +6,12 @@ import {
 } from '../lib/extensionStatus'
 import { SPECTACLES, type SpectacleId, isSpectacleId } from '../lib/presets'
 import { normalizeHostname } from '../lib/normalizeHostname'
-import { clearSiteSpectacle, getSiteMap, setSiteSpectacle } from '../lib/siteSettings'
+import {
+  clearSiteSpectacle,
+  getSiteMap,
+  setFabHidden,
+  setSiteSpectacle,
+} from '../lib/siteSettings'
 
 function iconUrl(path: string): string {
   return chrome.runtime.getURL(path)
@@ -30,6 +35,7 @@ export function App() {
   const [fabEnabled, setFabEnabled] = useState(true)
   const [savedId, setSavedId] = useState<SpectacleId>('none')
   const [savedFabEnabled, setSavedFabEnabled] = useState(true)
+  const [savedFabHidden, setSavedFabHidden] = useState(false)
   const [applyState, setApplyState] = useState<'idle' | 'busy' | 'ok' | 'err'>(
     'idle',
   )
@@ -78,6 +84,7 @@ export function App() {
         const nextFabEnabled = raw?.fabEnabled ?? true
         setFabEnabled(nextFabEnabled)
         setSavedFabEnabled(nextFabEnabled)
+        setSavedFabHidden(raw?.fabHidden ?? false)
         await refreshRuntimeStatus()
       } catch {
         if (!cancelled) {
@@ -98,6 +105,7 @@ export function App() {
       await setSiteSpectacle(hostname, selectedId, fabEnabled)
       setSavedId(selectedId)
       setSavedFabEnabled(fabEnabled)
+      setSavedFabHidden(false)
       setApplyState('ok')
       await refreshRuntimeStatus()
       window.setTimeout(() => setApplyState('idle'), 3200)
@@ -116,6 +124,7 @@ export function App() {
       setSavedId('none')
       setFabEnabled(true)
       setSavedFabEnabled(true)
+      setSavedFabHidden(false)
       setApplyState('ok')
       await refreshRuntimeStatus()
       window.setTimeout(() => setApplyState('idle'), 3200)
@@ -124,6 +133,17 @@ export function App() {
       window.setTimeout(() => setApplyState('idle'), 2200)
     }
   }, [hostname, refreshRuntimeStatus])
+
+  const onShowFabAgain = useCallback(async () => {
+    if (!hostname) return
+    try {
+      await setFabHidden(hostname, false)
+      setSavedFabHidden(false)
+    } catch {
+      setApplyState('err')
+      window.setTimeout(() => setApplyState('idle'), 2200)
+    }
+  }, [hostname])
 
   const dirty =
     hostname !== null &&
@@ -190,6 +210,22 @@ export function App() {
         </label>
         <p className="panel__hint">Enabled by default. You can turn it off anytime.</p>
       </section>
+
+      {savedFabHidden && savedFabEnabled && savedId !== 'none' ? (
+        <section className="panel__section" aria-label="Floating assist visibility">
+          <p className="panel__hint">
+            Floating assist is hidden on this site. You can show it again without changing your preset.
+          </p>
+          <button
+            type="button"
+            className="panel__btn panel__btn--ghost"
+            disabled={!hostname || applyState === 'busy'}
+            onClick={() => void onShowFabAgain()}
+          >
+            Show floating assist
+          </button>
+        </section>
+      ) : null}
 
       <section className="panel__section" aria-live="polite">
         <div className="panel__label">Status</div>

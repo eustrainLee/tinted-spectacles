@@ -2,6 +2,7 @@ import { normalizeHostname } from '../lib/normalizeHostname'
 import type { ExtensionStatus } from '../lib/extensionStatus'
 import { STORAGE_KEY } from '../lib/storageSchema'
 import { getSiteMap } from '../lib/siteSettings'
+import { refreshFloatingAssistFromStorage } from './floatingAssist'
 import { runBilibiliFeedCleanup, resolveBilibiliFeedRoot } from '../rules/bilibili/feedCleanup'
 import { BILIBILI_HOST_SUFFIX } from '../rules/bilibili/selectors'
 
@@ -93,15 +94,20 @@ async function refreshRuntimeFromStorage(): Promise<void> {
   startCleanupObserver()
 }
 
+async function refreshAllFromStorage(): Promise<void> {
+  await refreshRuntimeFromStorage()
+  await refreshFloatingAssistFromStorage(currentHostname)
+}
+
 void (async () => {
   try {
-    await refreshRuntimeFromStorage()
+    await refreshAllFromStorage()
 
     chrome.storage.onChanged.addListener((changes, areaName) => {
       if (areaName !== 'local' || !(STORAGE_KEY in changes)) {
         return
       }
-      void refreshRuntimeFromStorage()
+      void refreshAllFromStorage()
     })
   } catch {
     await reportStatus('fatal')

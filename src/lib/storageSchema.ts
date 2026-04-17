@@ -6,6 +6,7 @@ export const STORAGE_SCHEMA_VERSION = 1
 export interface SiteSettingRecord {
   presetId: SpectacleId
   fabEnabled: boolean
+  fabHidden: boolean
 }
 
 export interface SiteSettingsState {
@@ -22,6 +23,7 @@ function parseSiteRecord(value: unknown): SiteSettingRecord | null {
     return {
       presetId: value,
       fabEnabled: true,
+      fabHidden: false,
     }
   }
 
@@ -37,9 +39,13 @@ function parseSiteRecord(value: unknown): SiteSettingRecord | null {
   const fabEnabledRaw = value.fabEnabled
   const fabEnabled = typeof fabEnabledRaw === 'boolean' ? fabEnabledRaw : true
 
+  const fabHiddenRaw = value.fabHidden
+  const fabHidden = typeof fabHiddenRaw === 'boolean' ? fabHiddenRaw : false
+
   return {
     presetId: presetIdRaw,
     fabEnabled,
+    fabHidden,
   }
 }
 
