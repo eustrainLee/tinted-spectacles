@@ -52,3 +52,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 chrome.tabs.onRemoved.addListener((tabId) => {
   tabStatusMap.delete(tabId)
 })
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (changeInfo.status !== 'loading') {
+    return
+  }
+  void applyActionStatus(tabId, 'noMatch')
+})

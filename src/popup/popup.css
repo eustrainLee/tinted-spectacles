@@ -187,3 +187,25 @@ body {
 .panel__badge--err {
   color: color-mix(in oklab, #e74c3c 75%, CanvasText 25%);
 }
+
+.panel__notice {
+  margin-top: 10px;
+  padding: 10px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--panel-border);
+}
+
+.panel__notice-text {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.panel__notice--success {
+  background: color-mix(in oklab, #2ecc71 12%, Canvas 88%);
+}
+
+.panel__notice--error {
+  background: color-mix(in oklab, #e74c3c 12%, Canvas 88%);
+}

@@ -100,7 +100,7 @@ export function App() {
       setSavedFabEnabled(fabEnabled)
       setApplyState('ok')
       await refreshRuntimeStatus()
-      window.setTimeout(() => setApplyState('idle'), 1600)
+      window.setTimeout(() => setApplyState('idle'), 3200)
     } catch {
       setApplyState('err')
       window.setTimeout(() => setApplyState('idle'), 2200)
@@ -118,7 +118,7 @@ export function App() {
       setSavedFabEnabled(true)
       setApplyState('ok')
       await refreshRuntimeStatus()
-      window.setTimeout(() => setApplyState('idle'), 1600)
+      window.setTimeout(() => setApplyState('idle'), 3200)
     } catch {
       setApplyState('err')
       window.setTimeout(() => setApplyState('idle'), 2200)
@@ -202,6 +202,7 @@ export function App() {
           type="button"
           className="panel__btn panel__btn--primary"
           disabled={!hostname || applyState === 'busy'}
+          aria-busy={applyState === 'busy'}
           onClick={() => void onApply()}
         >
           {applyState === 'busy' ? 'Saving…' : 'Apply to this site'}
@@ -210,6 +211,7 @@ export function App() {
           type="button"
           className="panel__btn panel__btn--ghost"
           disabled={!hostname || applyState === 'busy'}
+          aria-busy={applyState === 'busy'}
           onClick={() => void onClear()}
         >
           Clear site setting
@@ -217,13 +219,22 @@ export function App() {
         {dirty && hostname ? (
           <span className="panel__badge">Unsaved changes</span>
         ) : null}
-        {applyState === 'ok' ? (
-          <span className="panel__badge panel__badge--ok">Saved</span>
-        ) : null}
-        {applyState === 'err' ? (
-          <span className="panel__badge panel__badge--err">Save failed</span>
-        ) : null}
       </div>
+
+      {applyState === 'ok' ? (
+        <section className="panel__notice panel__notice--success" aria-live="polite">
+          <p className="panel__notice-text">
+            Saved. If the page does not update right away, use Reload in Chrome for this tab.
+          </p>
+        </section>
+      ) : null}
+      {applyState === 'err' ? (
+        <section className="panel__notice panel__notice--error" role="alert">
+          <p className="panel__notice-text">
+            Could not save settings. Try Apply again, or restart Chrome if storage is unavailable.
+          </p>
+        </section>
+      ) : null}
     </main>
   )
 }
