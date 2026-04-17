@@ -1,37 +1,101 @@
+import {
+  clampFabTopLeft,
+  defaultFabTopLeft,
+  snapFabTopLeftToEdges,
+} from '../lib/fabLayout'
 import { shouldShowFloatingAssist } from '../lib/floatingAssistPolicy'
 import { normalizeHostname } from '../lib/normalizeHostname'
 import { getSpectacleLabel, type SpectacleId } from '../lib/presets'
-import { getSiteMap, setFabHidden } from '../lib/siteSettings'
+import type { FabPosition, SiteSettingRecord } from '../lib/storageSchema'
+import { getSiteMap, setFabHidden, setFabPosition } from '../lib/siteSettings'
 
 const HOST_ID = 'tinted-spectacles-fab-host'
+const DRAG_THRESHOLD_PX = 6
 
 let fabHost: HTMLElement | null = null
 let shadowRoot: ShadowRoot | null = null
+let wrapEl: HTMLElement | null = null
 let summarySiteEl: HTMLElement | null = null
 let summaryPresetEl: HTMLElement | null = null
 let panelEl: HTMLElement | null = null
 let toggleBtn: HTMLButtonElement | null = null
-let escapeHandler: ((event: KeyboardEvent) => void) | null = null
+let mountAbort: AbortController | null = null
+let resizeTimer: number | null = null
+
+let storageHostnameKey = ''
+let wrapLeft = 0
+let wrapTop = 0
+
+function positionEquals(a: FabPosition | undefined, b: FabPosition): boolean {
+  if (!a) {
+    return false
+  }
+  return a.left === b.left && a.top === b.top
+}
+
+function clearResizeTimer(): void {
+  if (resizeTimer !== null) {
+    window.clearTimeout(resizeTimer)
+    resizeTimer = null
+  }
+}
 
 function buildToggleAriaLabel(hostname: string, presetId: SpectacleId): string {
   const presetLabel = getSpectacleLabel(presetId)
-  return `Tinted Spectacles assist for ${hostname}, preset ${presetLabel}. Opens a short summary panel.`
+  return `Tinted Spectacles assist for ${hostname}, preset ${presetLabel}. Drag to move. Opens a short summary panel.`
+}
+
+function setWrapPosition(left: number, top: number): void {
+  if (!wrapEl) {
+    return
+  }
+  wrapLeft = left
+  wrapTop = top
+  wrapEl.style.left = `${Math.round(left)}px`
+  wrapEl.style.top = `${Math.round(top)}px`
+}
+
+function applyLayoutFromRecord(record: SiteSettingRecord): void {
+  if (!wrapEl) {
+    return
+  }
+  const width = wrapEl.offsetWidth
+  const height = wrapEl.offsetHeight
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  if (record.fabPosition) {
+    const clamped = clampFabTopLeft(
+      record.fabPosition.left,
+      record.fabPosition.top,
+      width,
+      height,
+      vw,
+      vh,
+    )
+    setWrapPosition(clamped.left, clamped.top)
+    return
+  }
+  const defaults = defaultFabTopLeft(width, height, vw, vh)
+  setWrapPosition(defaults.left, defaults.top)
 }
 
 function unmountFloatingAssist(): void {
-  if (escapeHandler) {
-    window.removeEventListener('keydown', escapeHandler)
-    escapeHandler = null
+  clearResizeTimer()
+  if (mountAbort) {
+    mountAbort.abort()
+    mountAbort = null
   }
   if (fabHost) {
     fabHost.remove()
   }
   fabHost = null
   shadowRoot = null
+  wrapEl = null
   summarySiteEl = null
   summaryPresetEl = null
   panelEl = null
   toggleBtn = null
+  storageHostnameKey = ''
 }
 
 function setPanelOpen(open: boolean): void {
@@ -53,10 +117,14 @@ function updateSummary(hostname: string, presetId: SpectacleId): void {
   }
 }
 
-function mountFloatingAssist(hostname: string, presetId: SpectacleId): void {
+function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void {
   if (fabHost) {
     return
   }
+
+  storageHostnameKey = hostname
+  mountAbort = new AbortController()
+  const signal = mountAbort.signal
 
   fabHost = document.createElement('div')
   fabHost.id = HOST_ID
@@ -72,8 +140,10 @@ function mountFloatingAssist(hostname: string, presetId: SpectacleId): void {
     }
     .wrap {
       position: fixed;
-      right: 16px;
-      bottom: 16px;
+      left: 0;
+      top: 0;
+      right: auto;
+      bottom: auto;
       z-index: 2147483646;
       display: flex;
       flex-direction: column;
@@ -89,8 +159,13 @@ function mountFloatingAssist(hostname: string, presetId: SpectacleId): void {
       color: #1b1f24;
       font-size: 13px;
       font-weight: 700;
-      cursor: pointer;
+      cursor: grab;
       box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+      touch-action: none;
+      user-select: none;
+    }
+    .toggle:active {
+      cursor: grabbing;
     }
     .toggle:focus-visible {
       outline: 2px solid #6d4aff;
@@ -175,12 +250,13 @@ function mountFloatingAssist(hostname: string, presetId: SpectacleId): void {
 
   const wrap = document.createElement('div')
   wrap.className = 'wrap'
+  wrapEl = wrap
 
   toggleBtn = document.createElement('button')
   toggleBtn.type = 'button'
   toggleBtn.className = 'toggle'
   toggleBtn.textContent = 'TS'
-  toggleBtn.setAttribute('aria-label', buildToggleAriaLabel(hostname, presetId))
+  toggleBtn.setAttribute('aria-label', buildToggleAriaLabel(hostname, record.presetId))
   toggleBtn.setAttribute('aria-haspopup', 'true')
   toggleBtn.setAttribute('aria-expanded', 'false')
 
@@ -213,36 +289,171 @@ function mountFloatingAssist(hostname: string, presetId: SpectacleId): void {
   hideBtn.type = 'button'
   hideBtn.className = 'btn btn--danger'
   hideBtn.textContent = 'Hide assist'
-  hideBtn.addEventListener('click', () => {
-    void (async () => {
-      await setFabHidden(hostname, true)
-      unmountFloatingAssist()
-    })()
-  })
+  hideBtn.addEventListener(
+    'click',
+    () => {
+      void (async () => {
+        await setFabHidden(hostname, true)
+        unmountFloatingAssist()
+      })()
+    },
+    { signal },
+  )
 
   actions.append(hideBtn)
   panelEl.append(rowSite, rowPreset, actions)
 
-  toggleBtn.addEventListener('click', () => {
-    if (!panelEl) {
+  let dragPointerId: number | null = null
+  let dragStartClientX = 0
+  let dragStartClientY = 0
+  let dragOriginLeft = 0
+  let dragOriginTop = 0
+  let dragActive = false
+  let suppressNextClick = false
+
+  toggleBtn.addEventListener(
+    'pointerdown',
+    (event) => {
+      if (event.button !== 0 || !wrapEl) {
+        return
+      }
+      dragPointerId = event.pointerId
+      dragStartClientX = event.clientX
+      dragStartClientY = event.clientY
+      dragOriginLeft = wrapLeft
+      dragOriginTop = wrapTop
+      dragActive = false
+      try {
+        toggleBtn?.setPointerCapture(event.pointerId)
+      } catch {
+        dragPointerId = null
+      }
+    },
+    { signal },
+  )
+
+  toggleBtn.addEventListener(
+    'pointermove',
+    (event) => {
+      if (dragPointerId !== event.pointerId || !wrapEl) {
+        return
+      }
+      const dx = event.clientX - dragStartClientX
+      const dy = event.clientY - dragStartClientY
+      if (!dragActive) {
+        if (dx * dx + dy * dy < DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) {
+          return
+        }
+        dragActive = true
+        setPanelOpen(false)
+      }
+      const width = wrapEl.offsetWidth
+      const height = wrapEl.offsetHeight
+      const next = clampFabTopLeft(
+        dragOriginLeft + dx,
+        dragOriginTop + dy,
+        width,
+        height,
+        window.innerWidth,
+        window.innerHeight,
+      )
+      setWrapPosition(next.left, next.top)
+    },
+    { signal },
+  )
+
+  const finishDrag = (event: PointerEvent): void => {
+    if (dragPointerId !== event.pointerId || !wrapEl) {
       return
     }
-    setPanelOpen(panelEl.hidden)
-  })
+    try {
+      toggleBtn?.releasePointerCapture(event.pointerId)
+    } catch {
+      // ignore
+    }
+    if (dragActive) {
+      const width = wrapEl.offsetWidth
+      const height = wrapEl.offsetHeight
+      const snapped = snapFabTopLeftToEdges(
+        wrapLeft,
+        wrapTop,
+        width,
+        height,
+        window.innerWidth,
+        window.innerHeight,
+      )
+      setWrapPosition(snapped.left, snapped.top)
+      suppressNextClick = true
+      void setFabPosition(storageHostnameKey, snapped)
+    }
+    dragPointerId = null
+    dragActive = false
+  }
+
+  toggleBtn.addEventListener('pointerup', finishDrag, { signal })
+  toggleBtn.addEventListener('pointercancel', finishDrag, { signal })
+
+  toggleBtn.addEventListener(
+    'click',
+    (event) => {
+      if (suppressNextClick) {
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        suppressNextClick = false
+        return
+      }
+      if (!panelEl) {
+        return
+      }
+      setPanelOpen(panelEl.hidden)
+    },
+    { signal },
+  )
 
   wrap.append(toggleBtn, panelEl)
   shadowRoot.append(wrap)
 
-  escapeHandler = (event: KeyboardEvent) => {
+  const escapeHandler = (event: KeyboardEvent): void => {
     if (event.key !== 'Escape' || !panelEl || panelEl.hidden) {
       return
     }
     setPanelOpen(false)
   }
-  window.addEventListener('keydown', escapeHandler)
+  window.addEventListener('keydown', escapeHandler, { signal })
 
-  updateSummary(hostname, presetId)
+  const scheduleResizeClamp = (): void => {
+    clearResizeTimer()
+    resizeTimer = window.setTimeout(() => {
+      resizeTimer = null
+      if (!wrapEl) {
+        return
+      }
+      const width = wrapEl.offsetWidth
+      const height = wrapEl.offsetHeight
+      const clamped = clampFabTopLeft(
+        wrapLeft,
+        wrapTop,
+        width,
+        height,
+        window.innerWidth,
+        window.innerHeight,
+      )
+      if (clamped.left !== wrapLeft || clamped.top !== wrapTop) {
+        setWrapPosition(clamped.left, clamped.top)
+      }
+    }, 120)
+  }
+
+  window.addEventListener('resize', scheduleResizeClamp, { signal })
+
+  updateSummary(hostname, record.presetId)
   setPanelOpen(false)
+
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      applyLayoutFromRecord(record)
+    })
+  })
 }
 
 export async function refreshFloatingAssistFromStorage(
@@ -252,17 +463,23 @@ export async function refreshFloatingAssistFromStorage(
     const key = normalizeHostname(pageHostname)
     const map = await getSiteMap()
     const record = map[key]
-    if (!shouldShowFloatingAssist(record)) {
+    if (!record || !shouldShowFloatingAssist(record)) {
       unmountFloatingAssist()
       return
     }
 
     if (!fabHost) {
-      mountFloatingAssist(key, record.presetId)
+      mountFloatingAssist(key, record)
       return
     }
 
     updateSummary(key, record.presetId)
+    if (
+      record.fabPosition &&
+      !positionEquals(record.fabPosition, { left: wrapLeft, top: wrapTop })
+    ) {
+      applyLayoutFromRecord(record)
+    }
   } catch {
     unmountFloatingAssist()
   }
