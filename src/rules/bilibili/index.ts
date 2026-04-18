@@ -4,7 +4,7 @@
  * - urlContext: where a rule applies (host, pathname).
  * - feedCard: low-level DOM ops on a feed-card target (remove / clear / mark).
  * - homeFeedAdsRule / homeFeedLikePromoRule / homeFeedPartitionRecommendRule /
- *   homeFeedDurationRule: homepage `/` feed rules.
+ *   homeFeedDurationRule / homeFeedTitleKeywordRule: homepage `/` feed rules.
  * Add new files (e.g. videoPageRule.ts) and export here; wire in content script by URL.
  */
 export { BILIBILI_HOST_SUFFIX } from './selectors'
@@ -19,10 +19,12 @@ export {
   DEFAULT_BILIBILI_FEED_BLOCK_MODE,
   DEFAULT_BILIBILI_LIKE_PROMO_BLOCK_MODE,
   DEFAULT_BILIBILI_PARTITION_RECOMMEND_BLOCK_MODE,
+  DEFAULT_BILIBILI_TITLE_KEYWORD_BLOCK_MODE,
   getEffectiveBilibiliDurationBlockMode,
   getEffectiveBilibiliFeedBlockMode,
   getEffectiveBilibiliLikePromoBlockMode,
   getEffectiveBilibiliPartitionRecommendBlockMode,
+  getEffectiveBilibiliTitleKeywordBlockMode,
 } from './blockMode'
 export { resolveHomeFeedRoot, runHomeFeedAdsRule } from './homeFeedAdsRule'
 export { runHomeFeedLikePromoRule } from './homeFeedLikePromoRule'
@@ -31,3 +33,8 @@ export {
   runHomeFeedDurationRule,
   type HomeFeedDurationRuleConfig,
 } from './homeFeedDurationRule'
+export {
+  findHomeFeedCardTitleText,
+  runHomeFeedTitleKeywordRule,
+  type HomeFeedTitleKeywordRuleConfig,
+} from './homeFeedTitleKeywordRule'

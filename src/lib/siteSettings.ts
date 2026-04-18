@@ -9,6 +9,7 @@ import {
   type FabPosition,
   type SiteSettingRecord,
 } from './storageSchema'
+import { sanitizeTitleKeywordPatterns } from './titleKeywordPatterns'
 
 export async function getSiteMap(): Promise<Record<string, SiteSettingRecord>> {
   const data = await chrome.storage.local.get(STORAGE_KEY)
@@ -55,6 +56,16 @@ export async function setSiteSpectacle(
         : {}),
       ...(previous?.bilibiliDurationMaxStr !== undefined
         ? { bilibiliDurationMaxStr: previous.bilibiliDurationMaxStr }
+        : {}),
+      ...(previous?.bilibiliTitleKeywordBlockMode
+        ? {
+            bilibiliTitleKeywordBlockMode: previous.bilibiliTitleKeywordBlockMode,
+          }
+        : {}),
+      ...(previous?.bilibiliTitleKeywordPatterns !== undefined
+        ? {
+            bilibiliTitleKeywordPatterns: previous.bilibiliTitleKeywordPatterns,
+          }
         : {}),
     }
   }
@@ -164,6 +175,54 @@ export async function setBilibiliPartitionRecommendBlockMode(
   sites[key] = {
     ...existing,
     bilibiliPartitionRecommendBlockMode: mode,
+  }
+  await chrome.storage.local.set({
+    [STORAGE_KEY]: {
+      schemaVersion: STORAGE_SCHEMA_VERSION,
+      sites,
+    },
+  })
+}
+
+export async function setBilibiliTitleKeywordBlockMode(
+  hostname: string,
+  mode: BilibiliFeedBlockMode,
+): Promise<void> {
+  const data = await chrome.storage.local.get(STORAGE_KEY)
+  const parsed = parseSiteSettingsState(data[STORAGE_KEY])
+  const sites = { ...parsed.sites }
+  const key = normalizeHostname(hostname)
+  const existing = sites[key]
+  if (!existing || existing.presetId !== 'bilibili') {
+    return
+  }
+  sites[key] = {
+    ...existing,
+    bilibiliTitleKeywordBlockMode: mode,
+  }
+  await chrome.storage.local.set({
+    [STORAGE_KEY]: {
+      schemaVersion: STORAGE_SCHEMA_VERSION,
+      sites,
+    },
+  })
+}
+
+export async function setBilibiliTitleKeywordPatterns(
+  hostname: string,
+  patterns: string[],
+): Promise<void> {
+  const data = await chrome.storage.local.get(STORAGE_KEY)
+  const parsed = parseSiteSettingsState(data[STORAGE_KEY])
+  const sites = { ...parsed.sites }
+  const key = normalizeHostname(hostname)
+  const existing = sites[key]
+  if (!existing || existing.presetId !== 'bilibili') {
+    return
+  }
+  sites[key] = {
+    ...existing,
+    bilibiliTitleKeywordPatterns: sanitizeTitleKeywordPatterns(patterns),
   }
   await chrome.storage.local.set({
     [STORAGE_KEY]: {

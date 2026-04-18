@@ -131,4 +131,26 @@ describe('parseSiteSettingsState', () => {
       parsed.sites['example.com']?.bilibiliPartitionRecommendBlockMode,
     ).toBe('mark')
   })
+
+  it('parses bilibiliTitleKeywordBlockMode and patterns array', () => {
+    const parsed = parseSiteSettingsState({
+      schemaVersion: 1,
+      sites: {
+        'example.com': {
+          presetId: 'bilibili',
+          fabEnabled: true,
+          fabHidden: false,
+          bilibiliTitleKeywordBlockMode: 'remove',
+          bilibiliTitleKeywordPatterns: ['  foo  ', '', 99, 'bar'],
+        },
+      },
+    })
+    expect(parsed.sites['example.com']?.bilibiliTitleKeywordBlockMode).toBe(
+      'remove',
+    )
+    expect(parsed.sites['example.com']?.bilibiliTitleKeywordPatterns).toEqual([
+      'foo',
+      'bar',
+    ])
+  })
 })

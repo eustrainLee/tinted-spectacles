@@ -51,3 +51,18 @@ export function getEffectiveBilibiliPartitionRecommendBlockMode(
     DEFAULT_BILIBILI_PARTITION_RECOMMEND_BLOCK_MODE
   )
 }
+
+/** Title keyword block is opt-in; off when unset. */
+export const DEFAULT_BILIBILI_TITLE_KEYWORD_BLOCK_MODE: BilibiliFeedBlockMode =
+  'off'
+
+export function getEffectiveBilibiliTitleKeywordBlockMode(
+  record:
+    | { bilibiliTitleKeywordBlockMode?: BilibiliFeedBlockMode }
+    | undefined,
+): BilibiliFeedBlockMode {
+  return (
+    record?.bilibiliTitleKeywordBlockMode ??
+    DEFAULT_BILIBILI_TITLE_KEYWORD_BLOCK_MODE
+  )
+}

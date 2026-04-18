@@ -1,4 +1,5 @@
 import { isSpectacleId, type SpectacleId } from './presets'
+import { sanitizeTitleKeywordPatterns } from './titleKeywordPatterns'
 
 export const STORAGE_KEY = 'siteSpectacleMap'
 export const STORAGE_SCHEMA_VERSION = 1
@@ -41,6 +42,10 @@ export interface SiteSettingRecord {
   bilibiliDurationMinStr?: string
   /** Typed max length; empty = no upper bound when rule is on. */
   bilibiliDurationMaxStr?: string
+  /** Bilibili: block feed cards when title matches any pattern (RegExp per line). */
+  bilibiliTitleKeywordBlockMode?: BilibiliFeedBlockMode
+  /** Stored title patterns; each compiled as RegExp with flag `iu`. */
+  bilibiliTitleKeywordPatterns?: string[]
 }
 
 export interface SiteSettingsState {
@@ -129,6 +134,16 @@ function parseSiteRecord(value: unknown): SiteSettingRecord | null {
       ? maxStrRaw.trim().slice(0, BILIBILI_DURATION_INPUT_MAX_CHARS)
       : undefined
 
+  const titleKwModeRaw = value.bilibiliTitleKeywordBlockMode
+  const bilibiliTitleKeywordBlockMode = isBilibiliFeedBlockMode(titleKwModeRaw)
+    ? titleKwModeRaw
+    : undefined
+
+  const titleKwPatternsRaw = value.bilibiliTitleKeywordPatterns
+  const bilibiliTitleKeywordPatterns = Array.isArray(titleKwPatternsRaw)
+    ? sanitizeTitleKeywordPatterns(titleKwPatternsRaw)
+    : undefined
+
   return {
     presetId: presetIdRaw,
     fabEnabled,
@@ -154,6 +169,14 @@ function parseSiteRecord(value: unknown): SiteSettingRecord | null {
       : {}),
     ...(typeof maxStrRaw === 'string'
       ? { bilibiliDurationMaxStr: bilibiliDurationMaxStr ?? '' }
+      : {}),
+    ...(bilibiliTitleKeywordBlockMode
+      ? { bilibiliTitleKeywordBlockMode: bilibiliTitleKeywordBlockMode }
+      : {}),
+    ...(Array.isArray(titleKwPatternsRaw)
+      ? {
+          bilibiliTitleKeywordPatterns: bilibiliTitleKeywordPatterns ?? [],
+        }
       : {}),
   }
 }

@@ -1,6 +1,10 @@
 import { normalizeHostname } from '../lib/normalizeHostname'
 import type { ExtensionStatus } from '../lib/extensionStatus'
-import { type BilibiliFeedBlockMode, STORAGE_KEY } from '../lib/storageSchema'
+import {
+  type BilibiliFeedBlockMode,
+  STORAGE_KEY,
+} from '../lib/storageSchema'
+import { compileTitleKeywordRegexes } from '../lib/titleKeywordPatterns'
 import { getSiteMap } from '../lib/siteSettings'
 import { refreshFloatingAssistFromStorage } from './floatingAssist'
 import {
@@ -8,6 +12,7 @@ import {
   getEffectiveBilibiliFeedBlockMode,
   getEffectiveBilibiliLikePromoBlockMode,
   getEffectiveBilibiliPartitionRecommendBlockMode,
+  getEffectiveBilibiliTitleKeywordBlockMode,
   isBilibiliHomeFeedPage,
   isBilibiliHost,
   resolveHomeFeedRoot,
@@ -15,7 +20,9 @@ import {
   runHomeFeedDurationRule,
   runHomeFeedLikePromoRule,
   runHomeFeedPartitionRecommendRule,
+  runHomeFeedTitleKeywordRule,
   type HomeFeedDurationRuleConfig,
+  type HomeFeedTitleKeywordRuleConfig,
 } from '../rules/bilibili'
 
 const CLEANUP_DEBOUNCE_MS = 180
@@ -33,6 +40,19 @@ let cachedDurationConfig: HomeFeedDurationRuleConfig = {
   mode: getEffectiveBilibiliDurationBlockMode(undefined),
   minStr: '',
   maxStr: '',
+}
+let cachedTitleKeywordConfig: HomeFeedTitleKeywordRuleConfig = {
+  mode: getEffectiveBilibiliTitleKeywordBlockMode(undefined),
+  patterns: [],
+}
+
+function titleKeywordObserverShouldRun(): boolean {
+  if (cachedTitleKeywordConfig.mode === 'off') {
+    return false
+  }
+  return (
+    compileTitleKeywordRegexes(cachedTitleKeywordConfig.patterns).length > 0
+  )
 }
 
 function clearPendingTimer(): void {
@@ -62,11 +82,16 @@ function runHomeFeedCleanup(root: ParentNode): void {
       cachedPartitionRecommendMode,
     )
     const durationChanged = runHomeFeedDurationRule(root, cachedDurationConfig)
+    const titleKwChanged = runHomeFeedTitleKeywordRule(
+      root,
+      cachedTitleKeywordConfig,
+    )
     const changed =
       adsChanged +
       likePromoChanged +
       partitionRecommendChanged +
-      durationChanged
+      durationChanged +
+      titleKwChanged
     void reportStatus(changed > 0 ? 'ok' : 'noMatch')
   } catch {
     void reportStatus('partialFailure')
@@ -120,6 +145,10 @@ async function refreshRuntimeFromStorage(): Promise<void> {
     minStr: site?.bilibiliDurationMinStr ?? '',
     maxStr: site?.bilibiliDurationMaxStr ?? '',
   }
+  cachedTitleKeywordConfig = {
+    mode: getEffectiveBilibiliTitleKeywordBlockMode(site),
+    patterns: site?.bilibiliTitleKeywordPatterns ?? [],
+  }
 
   if (site?.presetId !== 'bilibili') {
     stopCleanupObserver()
@@ -131,7 +160,8 @@ async function refreshRuntimeFromStorage(): Promise<void> {
     cachedBlockMode !== 'off' ||
     cachedLikePromoMode !== 'off' ||
     cachedPartitionRecommendMode !== 'off' ||
-    cachedDurationConfig.mode !== 'off'
+    cachedDurationConfig.mode !== 'off' ||
+    titleKeywordObserverShouldRun()
   if (!anyHomeFeedRuleActive) {
     stopCleanupObserver()
     await reportStatus('noMatch')

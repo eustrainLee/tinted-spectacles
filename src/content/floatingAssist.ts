@@ -13,12 +13,18 @@ import {
   isBilibiliFeedBlockMode,
 } from '../lib/storageSchema'
 import {
+  BILIBILI_TITLE_KEYWORD_MAX_PATTERNS,
+  BILIBILI_TITLE_KEYWORD_PATTERN_MAX_CHARS,
+} from '../lib/titleKeywordPatterns'
+import {
   getSiteMap,
   setBilibiliDurationBlockMode,
   setBilibiliDurationBoundStrings,
   setBilibiliFeedBlockMode,
   setBilibiliLikePromoBlockMode,
   setBilibiliPartitionRecommendBlockMode,
+  setBilibiliTitleKeywordBlockMode,
+  setBilibiliTitleKeywordPatterns,
   setFabHidden,
   setFabPosition,
 } from '../lib/siteSettings'
@@ -27,6 +33,7 @@ import {
   getEffectiveBilibiliFeedBlockMode,
   getEffectiveBilibiliLikePromoBlockMode,
   getEffectiveBilibiliPartitionRecommendBlockMode,
+  getEffectiveBilibiliTitleKeywordBlockMode,
 } from '../rules/bilibili'
 
 const HOST_ID = 'tinted-spectacles-fab-host'
@@ -52,6 +59,10 @@ let biliDurationSelect: HTMLSelectElement | null = null
 let biliDurationMinInput: HTMLInputElement | null = null
 let biliDurationMaxInput: HTMLInputElement | null = null
 let durationBoundsDebounceTimer: number | null = null
+let biliTitleKwSelect: HTMLSelectElement | null = null
+let biliTitleKwDetails: HTMLDetailsElement | null = null
+let biliTitleKwListEl: HTMLDivElement | null = null
+let biliTitleKwAddInput: HTMLInputElement | null = null
 
 let storageHostnameKey = ''
 let anchorLeft = 0
@@ -282,7 +293,42 @@ function unmountFloatingAssist(): void {
   biliDurationSelect = null
   biliDurationMinInput = null
   biliDurationMaxInput = null
+  biliTitleKwSelect = null
+  biliTitleKwDetails = null
+  biliTitleKwListEl = null
+  biliTitleKwAddInput = null
   storageHostnameKey = ''
+}
+
+function fillTitleKeywordPatternList(patterns: string[]): void {
+  if (!biliTitleKwListEl) {
+    return
+  }
+  biliTitleKwListEl.replaceChildren()
+  const host = storageHostnameKey
+  patterns.forEach((pat, index) => {
+    const row = document.createElement('div')
+    row.className = 'bili-title-kw-item'
+    const span = document.createElement('span')
+    span.className = 'bili-title-kw-item__text'
+    span.textContent = pat
+    span.title = pat
+    const del = document.createElement('button')
+    del.type = 'button'
+    del.className = 'bili-title-kw-item__del'
+    del.textContent = '\u5220\u9664'
+    del.setAttribute('aria-label', 'Remove title pattern')
+    del.addEventListener('click', () => {
+      void (async () => {
+        const map = await getSiteMap()
+        const cur = map[host]?.bilibiliTitleKeywordPatterns ?? []
+        const next = cur.filter((_, i) => i !== index)
+        await setBilibiliTitleKeywordPatterns(host, next)
+      })()
+    })
+    row.append(span, del)
+    biliTitleKwListEl!.append(row)
+  })
 }
 
 function setPanelOpen(open: boolean): void {
@@ -316,7 +362,10 @@ function updatePanelFromRecord(hostname: string, record: SiteSettingRecord): voi
     biliPartitionRecommendSelect &&
     biliDurationSelect &&
     biliDurationMinInput &&
-    biliDurationMaxInput
+    biliDurationMaxInput &&
+    biliTitleKwSelect &&
+    biliTitleKwListEl &&
+    biliTitleKwAddInput
   ) {
     const isBili = record.presetId === 'bilibili'
     biliBlockSection.hidden = !isBili
@@ -330,6 +379,10 @@ function updatePanelFromRecord(hostname: string, record: SiteSettingRecord): voi
         getEffectiveBilibiliDurationBlockMode(record)
       biliDurationMinInput.value = record.bilibiliDurationMinStr ?? ''
       biliDurationMaxInput.value = record.bilibiliDurationMaxStr ?? ''
+      biliTitleKwSelect.value =
+        getEffectiveBilibiliTitleKeywordBlockMode(record)
+      fillTitleKeywordPatternList(record.bilibiliTitleKeywordPatterns ?? [])
+      biliTitleKwAddInput.value = ''
     }
   }
 }
@@ -468,6 +521,28 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
         background: #1e222a;
         color: #eef1f7;
       }
+      .bili-title-kw-details {
+        border-color: #3d4450;
+      }
+      .bili-title-kw-item__del,
+      .bili-title-kw-add .btn-add,
+      .bili-title-kw-add input {
+        border-color: #3d4450;
+        background: #1e222a;
+        color: #eef1f7;
+      }
+      .bili-title-kw-list {
+        scrollbar-color: #5c6570 #2a3038;
+      }
+      .bili-title-kw-list::-webkit-scrollbar-track {
+        background: #2a3038;
+      }
+      .bili-title-kw-list::-webkit-scrollbar-thumb {
+        background: #5c6570;
+      }
+      .bili-title-kw-list::-webkit-scrollbar-thumb:hover {
+        background: #6f7888;
+      }
     }
     @media (prefers-reduced-motion: reduce) {
       .toggle,
@@ -545,6 +620,109 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
       flex: 0 0 auto;
       color: #5c6570;
       font-size: 11px;
+    }
+    .bili-title-kw-block {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .bili-title-kw-details {
+      width: 100%;
+      box-sizing: border-box;
+      border-radius: 8px;
+      border: 1px solid #c9ced6;
+      padding: 6px 8px;
+      font-size: 12px;
+    }
+    .bili-title-kw-details summary {
+      cursor: pointer;
+      font-weight: 700;
+      list-style: none;
+    }
+    .bili-title-kw-details summary::-webkit-details-marker {
+      display: none;
+    }
+    .bili-title-kw-panel {
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .bili-title-kw-list {
+      max-height: 120px;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 11px;
+      scrollbar-width: thin;
+      scrollbar-color: #9aa3ae #e2e6eb;
+    }
+    .bili-title-kw-list::-webkit-scrollbar {
+      width: 6px;
+    }
+    .bili-title-kw-list::-webkit-scrollbar-track {
+      background: #e2e6eb;
+      border-radius: 4px;
+    }
+    .bili-title-kw-list::-webkit-scrollbar-thumb {
+      background: #9aa3ae;
+      border-radius: 4px;
+    }
+    .bili-title-kw-list::-webkit-scrollbar-thumb:hover {
+      background: #858d99;
+    }
+    .bili-title-kw-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      justify-content: space-between;
+    }
+    .bili-title-kw-item__text {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .bili-title-kw-item__del {
+      flex: 0 0 auto;
+      border-radius: 6px;
+      border: 1px solid #c9ced6;
+      background: #ffffff;
+      color: #1b1f24;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 6px;
+      cursor: pointer;
+    }
+    .bili-title-kw-add {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .bili-title-kw-add input {
+      flex: 1 1 0;
+      min-width: 0;
+      box-sizing: border-box;
+      border-radius: 6px;
+      border: 1px solid #c9ced6;
+      background: #ffffff;
+      color: #1b1f24;
+      font-size: 11px;
+      padding: 3px 6px;
+    }
+    .bili-title-kw-add .btn-add {
+      flex: 0 0 auto;
+      border-radius: 6px;
+      border: 1px solid #c9ced6;
+      background: #ffffff;
+      color: #1b1f24;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      cursor: pointer;
     }
   `
   shadowRoot.append(style)
@@ -754,11 +932,102 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
   biliDurationMinInput.addEventListener('input', onBoundsInput, { signal })
   biliDurationMaxInput.addEventListener('input', onBoundsInput, { signal })
 
+  const biliTitleKwBlock = document.createElement('div')
+  biliTitleKwBlock.className = 'bili-title-kw-block'
+  const biliTitleKwModeRow = document.createElement('div')
+  biliTitleKwModeRow.className = 'bili-block-row'
+  const biliTitleKwLabel = document.createElement('span')
+  biliTitleKwLabel.className = 'bili-block-row__label'
+  biliTitleKwLabel.textContent = '\u89c6\u9891\u6807\u9898'
+  biliTitleKwSelect = document.createElement('select')
+  biliTitleKwSelect.className = 'bili-block-select'
+  biliTitleKwSelect.setAttribute(
+    'aria-label',
+    'Bilibili video title keyword block mode',
+  )
+  for (const [val, text] of biliModeOptions) {
+    const opt = document.createElement('option')
+    opt.value = val
+    opt.textContent = text
+    biliTitleKwSelect.append(opt)
+  }
+  biliTitleKwModeRow.append(biliTitleKwLabel, biliTitleKwSelect)
+  biliTitleKwSelect.addEventListener(
+    'change',
+    () => {
+      const v = biliTitleKwSelect?.value
+      if (v && isBilibiliFeedBlockMode(v)) {
+        void setBilibiliTitleKeywordBlockMode(hostname, v)
+      }
+    },
+    { signal },
+  )
+
+  biliTitleKwDetails = document.createElement('details')
+  biliTitleKwDetails.className = 'bili-title-kw-details'
+  const biliTitleKwSummary = document.createElement('summary')
+  biliTitleKwSummary.textContent =
+    '\u6807\u9898\u5c4f\u853d\u8bcd\u5217\u8868'
+  const biliTitleKwPanel = document.createElement('div')
+  biliTitleKwPanel.className = 'bili-title-kw-panel'
+  biliTitleKwListEl = document.createElement('div')
+  biliTitleKwListEl.className = 'bili-title-kw-list'
+  const biliTitleKwAddRow = document.createElement('div')
+  biliTitleKwAddRow.className = 'bili-title-kw-add'
+  biliTitleKwAddInput = document.createElement('input')
+  biliTitleKwAddInput.type = 'text'
+  biliTitleKwAddInput.autocomplete = 'off'
+  biliTitleKwAddInput.maxLength = BILIBILI_TITLE_KEYWORD_PATTERN_MAX_CHARS
+  biliTitleKwAddInput.placeholder = 'Regex or plain text'
+  biliTitleKwAddInput.setAttribute('aria-label', 'New title block pattern')
+  const biliTitleKwAddBtn = document.createElement('button')
+  biliTitleKwAddBtn.type = 'button'
+  biliTitleKwAddBtn.className = 'btn-add'
+  biliTitleKwAddBtn.textContent = '\u6dfb\u52a0'
+  const submitTitleKeywordPattern = (): void => {
+    void (async () => {
+      const key = storageHostnameKey
+      const raw = biliTitleKwAddInput?.value.trim() ?? ''
+      if (!raw || !key) {
+        return
+      }
+      const map = await getSiteMap()
+      const cur = map[key]?.bilibiliTitleKeywordPatterns ?? []
+      if (cur.length >= BILIBILI_TITLE_KEYWORD_MAX_PATTERNS) {
+        return
+      }
+      const next = [...cur, raw]
+      await setBilibiliTitleKeywordPatterns(key, next)
+      if (biliTitleKwAddInput) {
+        biliTitleKwAddInput.value = ''
+      }
+    })()
+  }
+  biliTitleKwAddBtn.addEventListener('click', submitTitleKeywordPattern, {
+    signal,
+  })
+  biliTitleKwAddInput.addEventListener(
+    'keydown',
+    (event) => {
+      if (event.key !== 'Enter' || event.isComposing) {
+        return
+      }
+      event.preventDefault()
+      submitTitleKeywordPattern()
+    },
+    { signal },
+  )
+  biliTitleKwAddRow.append(biliTitleKwAddInput, biliTitleKwAddBtn)
+  biliTitleKwPanel.append(biliTitleKwListEl, biliTitleKwAddRow)
+  biliTitleKwDetails.append(biliTitleKwSummary, biliTitleKwPanel)
+  biliTitleKwBlock.append(biliTitleKwModeRow, biliTitleKwDetails)
+
   biliBlockSection.append(
     biliRow,
     biliLikePromoRow,
     biliPartitionRecommendRow,
     biliDurationBlock,
+    biliTitleKwBlock,
     biliHint,
   )
 
