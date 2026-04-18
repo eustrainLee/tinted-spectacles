@@ -6,8 +6,23 @@ import {
 import { shouldShowFloatingAssist } from '../lib/floatingAssistPolicy'
 import { normalizeHostname } from '../lib/normalizeHostname'
 import { getSpectacleLabel, type SpectacleId } from '../lib/presets'
-import type { FabPosition, SiteSettingRecord } from '../lib/storageSchema'
-import { getSiteMap, setFabHidden, setFabPosition } from '../lib/siteSettings'
+import {
+  type BilibiliFeedBlockMode,
+  type FabPosition,
+  type SiteSettingRecord,
+  isBilibiliFeedBlockMode,
+} from '../lib/storageSchema'
+import {
+  getSiteMap,
+  setBilibiliFeedBlockMode,
+  setBilibiliLikePromoBlockMode,
+  setFabHidden,
+  setFabPosition,
+} from '../lib/siteSettings'
+import {
+  getEffectiveBilibiliFeedBlockMode,
+  getEffectiveBilibiliLikePromoBlockMode,
+} from '../rules/bilibili'
 
 const HOST_ID = 'tinted-spectacles-fab-host'
 const DRAG_THRESHOLD_PX = 6
@@ -24,6 +39,9 @@ let panelEl: HTMLElement | null = null
 let toggleBtn: HTMLButtonElement | null = null
 let mountAbort: AbortController | null = null
 let resizeTimer: number | null = null
+let biliBlockSection: HTMLDivElement | null = null
+let biliBlockSelect: HTMLSelectElement | null = null
+let biliLikePromoSelect: HTMLSelectElement | null = null
 
 let storageHostnameKey = ''
 let anchorLeft = 0
@@ -223,6 +241,9 @@ function unmountFloatingAssist(): void {
   summaryPresetEl = null
   panelEl = null
   toggleBtn = null
+  biliBlockSection = null
+  biliBlockSelect = null
+  biliLikePromoSelect = null
   storageHostnameKey = ''
 }
 
@@ -241,14 +262,23 @@ function setPanelOpen(open: boolean): void {
   }
 }
 
-function updateSummary(hostname: string, presetId: SpectacleId): void {
+function updatePanelFromRecord(hostname: string, record: SiteSettingRecord): void {
   if (!summarySiteEl || !summaryPresetEl) {
     return
   }
   summarySiteEl.textContent = hostname
-  summaryPresetEl.textContent = getSpectacleLabel(presetId)
+  summaryPresetEl.textContent = getSpectacleLabel(record.presetId)
   if (toggleBtn) {
-    toggleBtn.setAttribute('aria-label', buildToggleAriaLabel(hostname, presetId))
+    toggleBtn.setAttribute('aria-label', buildToggleAriaLabel(hostname, record.presetId))
+  }
+  if (biliBlockSection && biliBlockSelect && biliLikePromoSelect) {
+    const isBili = record.presetId === 'bilibili'
+    biliBlockSection.hidden = !isBili
+    if (isBili) {
+      biliBlockSelect.value = getEffectiveBilibiliFeedBlockMode(record)
+      biliLikePromoSelect.value =
+        getEffectiveBilibiliLikePromoBlockMode(record)
+    }
   }
 }
 
@@ -373,12 +403,61 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
         border-color: #7a3d48;
         background: #2a1a1d;
       }
+      .bili-block-select {
+        border-color: #3d4450;
+        background: #1e222a;
+        color: #eef1f7;
+      }
+      .bili-block-hint {
+        color: #a8b0bd;
+      }
     }
     @media (prefers-reduced-motion: reduce) {
       .toggle,
       .btn {
         transition: none;
       }
+    }
+    .bili-block-wrap[hidden] {
+      display: none;
+    }
+    .bili-block-wrap {
+      margin: 0 0 8px;
+    }
+    .bili-block-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .bili-block-row + .bili-block-row {
+      margin-top: 6px;
+    }
+    .bili-block-row__label {
+      font-weight: 700;
+      flex: 0 1 auto;
+      min-width: 0;
+    }
+    .bili-block-select {
+      flex: 1 1 auto;
+      min-width: 0;
+      max-width: 60%;
+      box-sizing: border-box;
+      border-radius: 8px;
+      border: 1px solid #c9ced6;
+      background: #ffffff;
+      color: #1b1f24;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 4px 8px;
+    }
+    .bili-block-hint {
+      margin: 4px 0 0;
+      font-size: 11px;
+      line-height: 1.35;
+      color: #5c6570;
     }
   `
   shadowRoot.append(style)
@@ -435,7 +514,77 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
   )
 
   actions.append(hideBtn)
-  panelEl.append(rowSite, rowPreset, actions)
+
+  biliBlockSection = document.createElement('div')
+  biliBlockSection.className = 'bili-block-wrap'
+  biliBlockSection.hidden = true
+  const biliRow = document.createElement('div')
+  biliRow.className = 'bili-block-row'
+  const biliLabel = document.createElement('span')
+  biliLabel.className = 'bili-block-row__label'
+  biliLabel.textContent = '\u5c4f\u853d\u5e7f\u544a'
+  biliBlockSelect = document.createElement('select')
+  biliBlockSelect.className = 'bili-block-select'
+  biliBlockSelect.setAttribute('aria-label', 'Bilibili ad block mode')
+  const biliModeOptions: [BilibiliFeedBlockMode, string][] = [
+    ['off', '\u5173\u95ed'],
+    ['remove', '\u79fb\u9664'],
+    ['clear', '\u6e05\u7a7a'],
+    ['mark', '\u6807\u8bb0'],
+  ]
+  for (const [val, text] of biliModeOptions) {
+    const opt = document.createElement('option')
+    opt.value = val
+    opt.textContent = text
+    biliBlockSelect.append(opt)
+  }
+  const biliHint = document.createElement('p')
+  biliHint.className = 'bili-block-hint'
+  biliHint.textContent = '\u4ec5\u9996\u9875\u0020\u002f\u0020\u751f\u6548'
+  biliRow.append(biliLabel, biliBlockSelect)
+  biliBlockSelect.addEventListener(
+    'change',
+    () => {
+      const v = biliBlockSelect?.value
+      if (v && isBilibiliFeedBlockMode(v)) {
+        void setBilibiliFeedBlockMode(hostname, v)
+      }
+    },
+    { signal },
+  )
+
+  const biliLikePromoRow = document.createElement('div')
+  biliLikePromoRow.className = 'bili-block-row'
+  const biliLikePromoLabel = document.createElement('span')
+  biliLikePromoLabel.className = 'bili-block-row__label'
+  biliLikePromoLabel.textContent = '\u5c4f\u853d\u70b9\u8d5e\u63a8\u5e7f'
+  biliLikePromoSelect = document.createElement('select')
+  biliLikePromoSelect.className = 'bili-block-select'
+  biliLikePromoSelect.setAttribute(
+    'aria-label',
+    'Bilibili like-promo block mode',
+  )
+  for (const [val, text] of biliModeOptions) {
+    const opt = document.createElement('option')
+    opt.value = val
+    opt.textContent = text
+    biliLikePromoSelect.append(opt)
+  }
+  biliLikePromoRow.append(biliLikePromoLabel, biliLikePromoSelect)
+  biliLikePromoSelect.addEventListener(
+    'change',
+    () => {
+      const v = biliLikePromoSelect?.value
+      if (v && isBilibiliFeedBlockMode(v)) {
+        void setBilibiliLikePromoBlockMode(hostname, v)
+      }
+    },
+    { signal },
+  )
+
+  biliBlockSection.append(biliRow, biliLikePromoRow, biliHint)
+
+  panelEl.append(rowSite, rowPreset, biliBlockSection, actions)
 
   let dragPointerId: number | null = null
   let dragStartClientX = 0
@@ -599,7 +748,7 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
     visualViewport.addEventListener('scroll', scheduleResizeClamp, { signal })
   }
 
-  updateSummary(hostname, record.presetId)
+  updatePanelFromRecord(hostname, record)
   setPanelOpen(false)
 
   window.requestAnimationFrame(() => {
@@ -626,7 +775,7 @@ export async function refreshFloatingAssistFromStorage(
       return
     }
 
-    updateSummary(key, record.presetId)
+    updatePanelFromRecord(key, record)
     if (
       record.fabPosition &&
       !positionEquals(record.fabPosition, { left: anchorLeft, top: anchorTop })

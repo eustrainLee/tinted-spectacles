@@ -4,6 +4,7 @@ import {
   STORAGE_KEY,
   STORAGE_SCHEMA_VERSION,
   parseSiteSettingsState,
+  type BilibiliFeedBlockMode,
   type FabPosition,
   type SiteSettingRecord,
 } from './storageSchema'
@@ -33,6 +34,12 @@ export async function setSiteSpectacle(
       fabEnabled,
       fabHidden: false,
       fabPosition: previous?.fabPosition,
+      ...(previous?.bilibiliFeedBlockMode
+        ? { bilibiliFeedBlockMode: previous.bilibiliFeedBlockMode }
+        : {}),
+      ...(previous?.bilibiliLikePromoBlockMode
+        ? { bilibiliLikePromoBlockMode: previous.bilibiliLikePromoBlockMode }
+        : {}),
     }
   }
 
@@ -69,6 +76,54 @@ export async function setFabHidden(hostname: string, hidden: boolean): Promise<v
   sites[key] = {
     ...existing,
     fabHidden: hidden,
+  }
+  await chrome.storage.local.set({
+    [STORAGE_KEY]: {
+      schemaVersion: STORAGE_SCHEMA_VERSION,
+      sites,
+    },
+  })
+}
+
+export async function setBilibiliFeedBlockMode(
+  hostname: string,
+  mode: BilibiliFeedBlockMode,
+): Promise<void> {
+  const data = await chrome.storage.local.get(STORAGE_KEY)
+  const parsed = parseSiteSettingsState(data[STORAGE_KEY])
+  const sites = { ...parsed.sites }
+  const key = normalizeHostname(hostname)
+  const existing = sites[key]
+  if (!existing || existing.presetId !== 'bilibili') {
+    return
+  }
+  sites[key] = {
+    ...existing,
+    bilibiliFeedBlockMode: mode,
+  }
+  await chrome.storage.local.set({
+    [STORAGE_KEY]: {
+      schemaVersion: STORAGE_SCHEMA_VERSION,
+      sites,
+    },
+  })
+}
+
+export async function setBilibiliLikePromoBlockMode(
+  hostname: string,
+  mode: BilibiliFeedBlockMode,
+): Promise<void> {
+  const data = await chrome.storage.local.get(STORAGE_KEY)
+  const parsed = parseSiteSettingsState(data[STORAGE_KEY])
+  const sites = { ...parsed.sites }
+  const key = normalizeHostname(hostname)
+  const existing = sites[key]
+  if (!existing || existing.presetId !== 'bilibili') {
+    return
+  }
+  sites[key] = {
+    ...existing,
+    bilibiliLikePromoBlockMode: mode,
   }
   await chrome.storage.local.set({
     [STORAGE_KEY]: {

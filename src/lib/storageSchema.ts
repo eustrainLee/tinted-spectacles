@@ -3,6 +3,19 @@ import { isSpectacleId, type SpectacleId } from './presets'
 export const STORAGE_KEY = 'siteSpectacleMap'
 export const STORAGE_SCHEMA_VERSION = 1
 
+export type BilibiliFeedBlockMode = 'off' | 'remove' | 'clear' | 'mark'
+
+export function isBilibiliFeedBlockMode(
+  value: unknown,
+): value is BilibiliFeedBlockMode {
+  return (
+    value === 'off' ||
+    value === 'remove' ||
+    value === 'clear' ||
+    value === 'mark'
+  )
+}
+
 export interface FabPosition {
   left: number
   top: number
@@ -13,6 +26,10 @@ export interface SiteSettingRecord {
   fabEnabled: boolean
   fabHidden: boolean
   fabPosition?: FabPosition
+  /** Bilibili: ad handling (off = disabled; default remove if unset). */
+  bilibiliFeedBlockMode?: BilibiliFeedBlockMode
+  /** Bilibili: like-promo line on cover stats (e.g. N万点赞); same modes as ads. */
+  bilibiliLikePromoBlockMode?: BilibiliFeedBlockMode
 }
 
 export interface SiteSettingsState {
@@ -68,11 +85,27 @@ function parseSiteRecord(value: unknown): SiteSettingRecord | null {
 
   const fabPosition = parseFabPosition(value.fabPosition)
 
+  const modeRaw = value.bilibiliFeedBlockMode
+  const bilibiliFeedBlockMode = isBilibiliFeedBlockMode(modeRaw)
+    ? modeRaw
+    : undefined
+
+  const likePromoRaw = value.bilibiliLikePromoBlockMode
+  const bilibiliLikePromoBlockMode = isBilibiliFeedBlockMode(likePromoRaw)
+    ? likePromoRaw
+    : undefined
+
   return {
     presetId: presetIdRaw,
     fabEnabled,
     fabHidden,
     ...(fabPosition ? { fabPosition } : {}),
+    ...(bilibiliFeedBlockMode
+      ? { bilibiliFeedBlockMode: bilibiliFeedBlockMode }
+      : {}),
+    ...(bilibiliLikePromoBlockMode
+      ? { bilibiliLikePromoBlockMode: bilibiliLikePromoBlockMode }
+      : {}),
   }
 }
 
