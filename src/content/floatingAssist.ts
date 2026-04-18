@@ -88,17 +88,62 @@ function applyLayoutFromRecord(record: SiteSettingRecord): void {
   setAnchorPosition(defaults.left, defaults.top)
 }
 
+function nudgePanelWithinViewportHorizontal(vw: number): void {
+  if (!panelEl) {
+    return
+  }
+  for (let i = 0; i < 4; i += 1) {
+    const r = panelEl.getBoundingClientRect()
+    let delta = 0
+    const maxRight = vw - VIEW_MARGIN
+    if (r.right > maxRight + 0.5) {
+      delta = maxRight - r.right
+    } else if (r.left < VIEW_MARGIN - 0.5) {
+      delta = VIEW_MARGIN - r.left
+    }
+    if (delta === 0) {
+      return
+    }
+    const prev = panelEl.style.left
+    const base = prev ? Number.parseFloat(prev) : r.left
+    if (!Number.isFinite(base)) {
+      panelEl.style.left = `${Math.round(VIEW_MARGIN)}px`
+    } else {
+      panelEl.style.left = `${Math.round(base + delta)}px`
+    }
+  }
+}
+
+function viewportCssWidth(): number {
+  const vv = window.visualViewport
+  if (vv && vv.width > 0) {
+    return vv.width
+  }
+  return window.innerWidth
+}
+
+function viewportCssHeight(): number {
+  const vv = window.visualViewport
+  if (vv && vv.height > 0) {
+    return vv.height
+  }
+  return window.innerHeight
+}
+
 function layoutPanelNearToggle(): void {
   if (!panelEl || !toggleBtn || panelEl.hidden) {
     return
   }
 
   const tr = toggleBtn.getBoundingClientRect()
-  const vw = window.innerWidth
-  const vh = window.innerHeight
-  const panelWidth = Math.min(PANEL_MAX_WIDTH, vw - VIEW_MARGIN * 2)
+  const vw = viewportCssWidth()
+  const vh = viewportCssHeight()
+  const maxUsableWidth = Math.max(120, vw - VIEW_MARGIN * 2)
+  const targetWidth = Math.min(PANEL_MAX_WIDTH, maxUsableWidth)
 
-  panelEl.style.width = `${Math.round(panelWidth)}px`
+  panelEl.style.boxSizing = 'border-box'
+  panelEl.style.width = `${Math.round(targetWidth)}px`
+  const layoutW = panelEl.getBoundingClientRect().width
   const panelHeight = panelEl.offsetHeight
 
   const spaceBelow = vh - tr.bottom - VIEW_MARGIN
@@ -115,23 +160,37 @@ function layoutPanelNearToggle(): void {
   )
 
   const toggleCenterX = tr.left + tr.width / 2
-  let left = toggleCenterX - panelWidth / 2
+  const nearRightEdge = tr.right >= vw - VIEW_MARGIN - 2
+  const nearLeftEdge = tr.left <= VIEW_MARGIN + 2
+  const nearLeft = tr.left <= VIEW_MARGIN + 64
+  const nearRight = vw - tr.right <= VIEW_MARGIN + 96
+  const inRightHalf = toggleCenterX >= vw * 0.5
 
-  const nearRight = vw - tr.right <= VIEW_MARGIN + 48
-  const nearLeft = tr.left <= VIEW_MARGIN + 48
-  if (nearRight && !nearLeft) {
-    left = Math.min(tr.right, vw - VIEW_MARGIN) - panelWidth
-  } else if (nearLeft && !nearRight) {
-    left = Math.max(tr.left - panelWidth, VIEW_MARGIN)
+  let left: number
+
+  if (nearRightEdge) {
+    left = vw - VIEW_MARGIN - layoutW
+  } else if (nearLeftEdge) {
+    left = VIEW_MARGIN
+  } else if (inRightHalf || nearRight) {
+    left = tr.right - layoutW - PANEL_GAP
+  } else if (!nearRight && nearLeft) {
+    left = Math.min(tr.left + tr.width + PANEL_GAP, vw - VIEW_MARGIN - layoutW)
+  } else {
+    left = toggleCenterX - layoutW / 2
   }
-
-  left = Math.min(
-    Math.max(VIEW_MARGIN, left),
-    Math.max(VIEW_MARGIN, vw - VIEW_MARGIN - panelWidth),
-  )
 
   panelEl.style.left = `${Math.round(left)}px`
   panelEl.style.top = `${Math.round(top)}px`
+
+  nudgePanelWithinViewportHorizontal(vw)
+
+  const rw = panelEl.getBoundingClientRect().width
+  if (rw > vw - VIEW_MARGIN * 2) {
+    panelEl.style.width = `${Math.round(Math.max(120, vw - VIEW_MARGIN * 2))}px`
+    panelEl.style.left = `${VIEW_MARGIN}px`
+    nudgePanelWithinViewportHorizontal(vw)
+  }
 }
 
 function isEventInsideFabUi(event: PointerEvent): boolean {
