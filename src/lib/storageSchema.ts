@@ -33,6 +33,8 @@ export interface SiteSettingRecord {
   bilibiliFeedBlockMode?: BilibiliFeedBlockMode
   /** Bilibili: like-promo line on cover stats (e.g. N万点赞); same modes as ads. */
   bilibiliLikePromoBlockMode?: BilibiliFeedBlockMode
+  /** Bilibili: partition-recommend floor tiles (data-mod partition_recommend.content). */
+  bilibiliPartitionRecommendBlockMode?: BilibiliFeedBlockMode
   /** Bilibili: filter feed cards by on-card video length; default off when unset. */
   bilibiliDurationBlockMode?: BilibiliFeedBlockMode
   /** Typed min length (MM:SS or H:MM:SS); empty = no lower bound when rule is on. */
@@ -104,6 +106,13 @@ function parseSiteRecord(value: unknown): SiteSettingRecord | null {
     ? likePromoRaw
     : undefined
 
+  const partitionRecommendRaw = value.bilibiliPartitionRecommendBlockMode
+  const bilibiliPartitionRecommendBlockMode = isBilibiliFeedBlockMode(
+    partitionRecommendRaw,
+  )
+    ? partitionRecommendRaw
+    : undefined
+
   const durationModeRaw = value.bilibiliDurationBlockMode
   const bilibiliDurationBlockMode = isBilibiliFeedBlockMode(durationModeRaw)
     ? durationModeRaw
@@ -130,6 +139,12 @@ function parseSiteRecord(value: unknown): SiteSettingRecord | null {
       : {}),
     ...(bilibiliLikePromoBlockMode
       ? { bilibiliLikePromoBlockMode: bilibiliLikePromoBlockMode }
+      : {}),
+    ...(bilibiliPartitionRecommendBlockMode
+      ? {
+          bilibiliPartitionRecommendBlockMode:
+            bilibiliPartitionRecommendBlockMode,
+        }
       : {}),
     ...(bilibiliDurationBlockMode
       ? { bilibiliDurationBlockMode: bilibiliDurationBlockMode }

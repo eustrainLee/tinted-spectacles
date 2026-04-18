@@ -12,3 +12,8 @@ export const AD_LABEL_SELECTOR = '.bili-video-card__info--ad'
 /** Commercial landing slot (top/side promo blocks). */
 export const CM_CARD_WRAP_SELECTOR = '.bili-video-card__wrap'
 export const CM_PROMO_LINK_SELECTOR = 'a[href*="cm.bilibili.com"]'
+/** Homepage partition-recommend single tile (badge + floor-title, data-mod on links). */
+export const PARTITION_RECOMMEND_FLOOR_SELECTOR = '.floor-single-card'
+/** Bilibili tracking attr on links inside partition-recommend cards. */
+export const PARTITION_RECOMMEND_MOD_SELECTOR =
+  '[data-mod="partition_recommend.content"]'

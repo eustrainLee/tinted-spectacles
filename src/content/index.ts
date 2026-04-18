@@ -7,12 +7,14 @@ import {
   getEffectiveBilibiliDurationBlockMode,
   getEffectiveBilibiliFeedBlockMode,
   getEffectiveBilibiliLikePromoBlockMode,
+  getEffectiveBilibiliPartitionRecommendBlockMode,
   isBilibiliHomeFeedPage,
   isBilibiliHost,
   resolveHomeFeedRoot,
   runHomeFeedAdsRule,
   runHomeFeedDurationRule,
   runHomeFeedLikePromoRule,
+  runHomeFeedPartitionRecommendRule,
   type HomeFeedDurationRuleConfig,
 } from '../rules/bilibili'
 
@@ -25,6 +27,8 @@ let cachedBlockMode: BilibiliFeedBlockMode =
   getEffectiveBilibiliFeedBlockMode(undefined)
 let cachedLikePromoMode: BilibiliFeedBlockMode =
   getEffectiveBilibiliLikePromoBlockMode(undefined)
+let cachedPartitionRecommendMode: BilibiliFeedBlockMode =
+  getEffectiveBilibiliPartitionRecommendBlockMode(undefined)
 let cachedDurationConfig: HomeFeedDurationRuleConfig = {
   mode: getEffectiveBilibiliDurationBlockMode(undefined),
   minStr: '',
@@ -53,8 +57,16 @@ function runHomeFeedCleanup(root: ParentNode): void {
       root,
       cachedLikePromoMode,
     )
+    const partitionRecommendChanged = runHomeFeedPartitionRecommendRule(
+      root,
+      cachedPartitionRecommendMode,
+    )
     const durationChanged = runHomeFeedDurationRule(root, cachedDurationConfig)
-    const changed = adsChanged + likePromoChanged + durationChanged
+    const changed =
+      adsChanged +
+      likePromoChanged +
+      partitionRecommendChanged +
+      durationChanged
     void reportStatus(changed > 0 ? 'ok' : 'noMatch')
   } catch {
     void reportStatus('partialFailure')
@@ -101,6 +113,8 @@ async function refreshRuntimeFromStorage(): Promise<void> {
   const site = siteMap[normalizeHostname(currentHostname)]
   cachedBlockMode = getEffectiveBilibiliFeedBlockMode(site)
   cachedLikePromoMode = getEffectiveBilibiliLikePromoBlockMode(site)
+  cachedPartitionRecommendMode =
+    getEffectiveBilibiliPartitionRecommendBlockMode(site)
   cachedDurationConfig = {
     mode: getEffectiveBilibiliDurationBlockMode(site),
     minStr: site?.bilibiliDurationMinStr ?? '',
@@ -116,6 +130,7 @@ async function refreshRuntimeFromStorage(): Promise<void> {
   const anyHomeFeedRuleActive =
     cachedBlockMode !== 'off' ||
     cachedLikePromoMode !== 'off' ||
+    cachedPartitionRecommendMode !== 'off' ||
     cachedDurationConfig.mode !== 'off'
   if (!anyHomeFeedRuleActive) {
     stopCleanupObserver()

@@ -114,4 +114,21 @@ describe('parseSiteSettingsState', () => {
       'clear',
     )
   })
+
+  it('parses bilibiliPartitionRecommendBlockMode when valid', () => {
+    const parsed = parseSiteSettingsState({
+      schemaVersion: 1,
+      sites: {
+        'example.com': {
+          presetId: 'bilibili',
+          fabEnabled: true,
+          fabHidden: false,
+          bilibiliPartitionRecommendBlockMode: 'mark',
+        },
+      },
+    })
+    expect(
+      parsed.sites['example.com']?.bilibiliPartitionRecommendBlockMode,
+    ).toBe('mark')
+  })
 })

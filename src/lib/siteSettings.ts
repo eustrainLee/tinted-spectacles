@@ -41,6 +41,12 @@ export async function setSiteSpectacle(
       ...(previous?.bilibiliLikePromoBlockMode
         ? { bilibiliLikePromoBlockMode: previous.bilibiliLikePromoBlockMode }
         : {}),
+      ...(previous?.bilibiliPartitionRecommendBlockMode
+        ? {
+            bilibiliPartitionRecommendBlockMode:
+              previous.bilibiliPartitionRecommendBlockMode,
+          }
+        : {}),
       ...(previous?.bilibiliDurationBlockMode
         ? { bilibiliDurationBlockMode: previous.bilibiliDurationBlockMode }
         : {}),
@@ -134,6 +140,30 @@ export async function setBilibiliLikePromoBlockMode(
   sites[key] = {
     ...existing,
     bilibiliLikePromoBlockMode: mode,
+  }
+  await chrome.storage.local.set({
+    [STORAGE_KEY]: {
+      schemaVersion: STORAGE_SCHEMA_VERSION,
+      sites,
+    },
+  })
+}
+
+export async function setBilibiliPartitionRecommendBlockMode(
+  hostname: string,
+  mode: BilibiliFeedBlockMode,
+): Promise<void> {
+  const data = await chrome.storage.local.get(STORAGE_KEY)
+  const parsed = parseSiteSettingsState(data[STORAGE_KEY])
+  const sites = { ...parsed.sites }
+  const key = normalizeHostname(hostname)
+  const existing = sites[key]
+  if (!existing || existing.presetId !== 'bilibili') {
+    return
+  }
+  sites[key] = {
+    ...existing,
+    bilibiliPartitionRecommendBlockMode: mode,
   }
   await chrome.storage.local.set({
     [STORAGE_KEY]: {

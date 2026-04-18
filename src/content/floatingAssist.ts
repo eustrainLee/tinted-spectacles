@@ -18,6 +18,7 @@ import {
   setBilibiliDurationBoundStrings,
   setBilibiliFeedBlockMode,
   setBilibiliLikePromoBlockMode,
+  setBilibiliPartitionRecommendBlockMode,
   setFabHidden,
   setFabPosition,
 } from '../lib/siteSettings'
@@ -25,6 +26,7 @@ import {
   getEffectiveBilibiliDurationBlockMode,
   getEffectiveBilibiliFeedBlockMode,
   getEffectiveBilibiliLikePromoBlockMode,
+  getEffectiveBilibiliPartitionRecommendBlockMode,
 } from '../rules/bilibili'
 
 const HOST_ID = 'tinted-spectacles-fab-host'
@@ -45,6 +47,7 @@ let resizeTimer: number | null = null
 let biliBlockSection: HTMLDivElement | null = null
 let biliBlockSelect: HTMLSelectElement | null = null
 let biliLikePromoSelect: HTMLSelectElement | null = null
+let biliPartitionRecommendSelect: HTMLSelectElement | null = null
 let biliDurationSelect: HTMLSelectElement | null = null
 let biliDurationMinInput: HTMLInputElement | null = null
 let biliDurationMaxInput: HTMLInputElement | null = null
@@ -275,6 +278,7 @@ function unmountFloatingAssist(): void {
   biliBlockSection = null
   biliBlockSelect = null
   biliLikePromoSelect = null
+  biliPartitionRecommendSelect = null
   biliDurationSelect = null
   biliDurationMinInput = null
   biliDurationMaxInput = null
@@ -309,6 +313,7 @@ function updatePanelFromRecord(hostname: string, record: SiteSettingRecord): voi
     biliBlockSection &&
     biliBlockSelect &&
     biliLikePromoSelect &&
+    biliPartitionRecommendSelect &&
     biliDurationSelect &&
     biliDurationMinInput &&
     biliDurationMaxInput
@@ -319,6 +324,8 @@ function updatePanelFromRecord(hostname: string, record: SiteSettingRecord): voi
       biliBlockSelect.value = getEffectiveBilibiliFeedBlockMode(record)
       biliLikePromoSelect.value =
         getEffectiveBilibiliLikePromoBlockMode(record)
+      biliPartitionRecommendSelect.value =
+        getEffectiveBilibiliPartitionRecommendBlockMode(record)
       biliDurationSelect.value =
         getEffectiveBilibiliDurationBlockMode(record)
       biliDurationMinInput.value = record.bilibiliDurationMinStr ?? ''
@@ -662,6 +669,39 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
     { signal },
   )
 
+  const biliPartitionRecommendRow = document.createElement('div')
+  biliPartitionRecommendRow.className = 'bili-block-row'
+  const biliPartitionRecommendLabel = document.createElement('span')
+  biliPartitionRecommendLabel.className = 'bili-block-row__label'
+  biliPartitionRecommendLabel.textContent =
+    '\u5c4f\u853d\u5206\u533a\u63a8\u8350'
+  biliPartitionRecommendSelect = document.createElement('select')
+  biliPartitionRecommendSelect.className = 'bili-block-select'
+  biliPartitionRecommendSelect.setAttribute(
+    'aria-label',
+    'Bilibili partition-recommend block mode',
+  )
+  for (const [val, text] of biliModeOptions) {
+    const opt = document.createElement('option')
+    opt.value = val
+    opt.textContent = text
+    biliPartitionRecommendSelect.append(opt)
+  }
+  biliPartitionRecommendRow.append(
+    biliPartitionRecommendLabel,
+    biliPartitionRecommendSelect,
+  )
+  biliPartitionRecommendSelect.addEventListener(
+    'change',
+    () => {
+      const v = biliPartitionRecommendSelect?.value
+      if (v && isBilibiliFeedBlockMode(v)) {
+        void setBilibiliPartitionRecommendBlockMode(hostname, v)
+      }
+    },
+    { signal },
+  )
+
   const biliDurationBlock = document.createElement('div')
   biliDurationBlock.className = 'bili-duration-block'
   const biliDurationRow = document.createElement('div')
@@ -717,6 +757,7 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
   biliBlockSection.append(
     biliRow,
     biliLikePromoRow,
+    biliPartitionRecommendRow,
     biliDurationBlock,
     biliHint,
   )

@@ -36,3 +36,18 @@ export function getEffectiveBilibiliDurationBlockMode(
     record?.bilibiliDurationBlockMode ?? DEFAULT_BILIBILI_DURATION_BLOCK_MODE
   )
 }
+
+/** Partition-recommend tiles are opt-in; off when unset. */
+export const DEFAULT_BILIBILI_PARTITION_RECOMMEND_BLOCK_MODE: BilibiliFeedBlockMode =
+  'off'
+
+export function getEffectiveBilibiliPartitionRecommendBlockMode(
+  record:
+    | { bilibiliPartitionRecommendBlockMode?: BilibiliFeedBlockMode }
+    | undefined,
+): BilibiliFeedBlockMode {
+  return (
+    record?.bilibiliPartitionRecommendBlockMode ??
+    DEFAULT_BILIBILI_PARTITION_RECOMMEND_BLOCK_MODE
+  )
+}
