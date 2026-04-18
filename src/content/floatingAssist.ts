@@ -65,13 +65,29 @@ function setAnchorPosition(left: number, top: number): void {
   anchorEl.style.top = `${Math.round(top)}px`
 }
 
+function viewportCssWidth(): number {
+  const vv = window.visualViewport
+  if (vv && vv.width > 0) {
+    return vv.width
+  }
+  return window.innerWidth
+}
+
+function viewportCssHeight(): number {
+  const vv = window.visualViewport
+  if (vv && vv.height > 0) {
+    return vv.height
+  }
+  return window.innerHeight
+}
+
 function applyLayoutFromRecord(record: SiteSettingRecord): void {
   if (!anchorEl) {
     return
   }
   const { width, height } = getAnchorSize()
-  const vw = window.innerWidth
-  const vh = window.innerHeight
+  const vw = viewportCssWidth()
+  const vh = viewportCssHeight()
   if (record.fabPosition) {
     const clamped = clampFabTopLeft(
       record.fabPosition.left,
@@ -112,22 +128,6 @@ function nudgePanelWithinViewportHorizontal(vw: number): void {
       panelEl.style.left = `${Math.round(base + delta)}px`
     }
   }
-}
-
-function viewportCssWidth(): number {
-  const vv = window.visualViewport
-  if (vv && vv.width > 0) {
-    return vv.width
-  }
-  return window.innerWidth
-}
-
-function viewportCssHeight(): number {
-  const vv = window.visualViewport
-  if (vv && vv.height > 0) {
-    return vv.height
-  }
-  return window.innerHeight
 }
 
 function layoutPanelNearToggle(): void {
@@ -487,8 +487,8 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
         dragOriginTop + dy,
         width,
         height,
-        window.innerWidth,
-        window.innerHeight,
+        viewportCssWidth(),
+        viewportCssHeight(),
       )
       setAnchorPosition(next.left, next.top)
     },
@@ -511,8 +511,8 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
         anchorTop,
         width,
         height,
-        window.innerWidth,
-        window.innerHeight,
+        viewportCssWidth(),
+        viewportCssHeight(),
       )
       setAnchorPosition(snapped.left, snapped.top)
       suppressNextClick = true
@@ -580,8 +580,8 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
         anchorTop,
         width,
         height,
-        window.innerWidth,
-        window.innerHeight,
+        viewportCssWidth(),
+        viewportCssHeight(),
       )
       if (clamped.left !== anchorLeft || clamped.top !== anchorTop) {
         setAnchorPosition(clamped.left, clamped.top)
@@ -593,6 +593,11 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
   }
 
   window.addEventListener('resize', scheduleResizeClamp, { signal })
+  const visualViewport = window.visualViewport
+  if (visualViewport) {
+    visualViewport.addEventListener('resize', scheduleResizeClamp, { signal })
+    visualViewport.addEventListener('scroll', scheduleResizeClamp, { signal })
+  }
 
   updateSummary(hostname, record.presetId)
   setPanelOpen(false)

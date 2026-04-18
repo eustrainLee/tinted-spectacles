@@ -15,7 +15,7 @@ export const SPECTACLES: readonly SpectaclePreset[] = [
   {
     id: 'bilibili',
     label: 'Bilibili',
-    hint: 'Rules for bilibili.com (filters not wired yet).',
+    hint: 'Bilibili feed cleanup when enabled for this site.',
   },
   {
     id: 'zhihu',
