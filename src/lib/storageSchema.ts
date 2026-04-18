@@ -3,6 +3,9 @@ import { isSpectacleId, type SpectacleId } from './presets'
 export const STORAGE_KEY = 'siteSpectacleMap'
 export const STORAGE_SCHEMA_VERSION = 1
 
+/** Max chars stored for bilibili duration min/max text fields. */
+export const BILIBILI_DURATION_INPUT_MAX_CHARS = 32
+
 export type BilibiliFeedBlockMode = 'off' | 'remove' | 'clear' | 'mark'
 
 export function isBilibiliFeedBlockMode(
@@ -30,6 +33,12 @@ export interface SiteSettingRecord {
   bilibiliFeedBlockMode?: BilibiliFeedBlockMode
   /** Bilibili: like-promo line on cover stats (e.g. N万点赞); same modes as ads. */
   bilibiliLikePromoBlockMode?: BilibiliFeedBlockMode
+  /** Bilibili: filter feed cards by on-card video length; default off when unset. */
+  bilibiliDurationBlockMode?: BilibiliFeedBlockMode
+  /** Typed min length (MM:SS or H:MM:SS); empty = no lower bound when rule is on. */
+  bilibiliDurationMinStr?: string
+  /** Typed max length; empty = no upper bound when rule is on. */
+  bilibiliDurationMaxStr?: string
 }
 
 export interface SiteSettingsState {
@@ -95,6 +104,22 @@ function parseSiteRecord(value: unknown): SiteSettingRecord | null {
     ? likePromoRaw
     : undefined
 
+  const durationModeRaw = value.bilibiliDurationBlockMode
+  const bilibiliDurationBlockMode = isBilibiliFeedBlockMode(durationModeRaw)
+    ? durationModeRaw
+    : undefined
+
+  const minStrRaw = value.bilibiliDurationMinStr
+  const maxStrRaw = value.bilibiliDurationMaxStr
+  const bilibiliDurationMinStr =
+    typeof minStrRaw === 'string'
+      ? minStrRaw.trim().slice(0, BILIBILI_DURATION_INPUT_MAX_CHARS)
+      : undefined
+  const bilibiliDurationMaxStr =
+    typeof maxStrRaw === 'string'
+      ? maxStrRaw.trim().slice(0, BILIBILI_DURATION_INPUT_MAX_CHARS)
+      : undefined
+
   return {
     presetId: presetIdRaw,
     fabEnabled,
@@ -105,6 +130,15 @@ function parseSiteRecord(value: unknown): SiteSettingRecord | null {
       : {}),
     ...(bilibiliLikePromoBlockMode
       ? { bilibiliLikePromoBlockMode: bilibiliLikePromoBlockMode }
+      : {}),
+    ...(bilibiliDurationBlockMode
+      ? { bilibiliDurationBlockMode: bilibiliDurationBlockMode }
+      : {}),
+    ...(typeof minStrRaw === 'string'
+      ? { bilibiliDurationMinStr: bilibiliDurationMinStr ?? '' }
+      : {}),
+    ...(typeof maxStrRaw === 'string'
+      ? { bilibiliDurationMaxStr: bilibiliDurationMaxStr ?? '' }
       : {}),
   }
 }

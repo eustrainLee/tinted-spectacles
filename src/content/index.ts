@@ -4,13 +4,16 @@ import { type BilibiliFeedBlockMode, STORAGE_KEY } from '../lib/storageSchema'
 import { getSiteMap } from '../lib/siteSettings'
 import { refreshFloatingAssistFromStorage } from './floatingAssist'
 import {
+  getEffectiveBilibiliDurationBlockMode,
   getEffectiveBilibiliFeedBlockMode,
   getEffectiveBilibiliLikePromoBlockMode,
   isBilibiliHomeFeedPage,
   isBilibiliHost,
   resolveHomeFeedRoot,
   runHomeFeedAdsRule,
+  runHomeFeedDurationRule,
   runHomeFeedLikePromoRule,
+  type HomeFeedDurationRuleConfig,
 } from '../rules/bilibili'
 
 const CLEANUP_DEBOUNCE_MS = 180
@@ -22,6 +25,11 @@ let cachedBlockMode: BilibiliFeedBlockMode =
   getEffectiveBilibiliFeedBlockMode(undefined)
 let cachedLikePromoMode: BilibiliFeedBlockMode =
   getEffectiveBilibiliLikePromoBlockMode(undefined)
+let cachedDurationConfig: HomeFeedDurationRuleConfig = {
+  mode: getEffectiveBilibiliDurationBlockMode(undefined),
+  minStr: '',
+  maxStr: '',
+}
 
 function clearPendingTimer(): void {
   if (cleanupTimer !== null) {
@@ -45,7 +53,8 @@ function runHomeFeedCleanup(root: ParentNode): void {
       root,
       cachedLikePromoMode,
     )
-    const changed = adsChanged + likePromoChanged
+    const durationChanged = runHomeFeedDurationRule(root, cachedDurationConfig)
+    const changed = adsChanged + likePromoChanged + durationChanged
     void reportStatus(changed > 0 ? 'ok' : 'noMatch')
   } catch {
     void reportStatus('partialFailure')
@@ -92,6 +101,11 @@ async function refreshRuntimeFromStorage(): Promise<void> {
   const site = siteMap[normalizeHostname(currentHostname)]
   cachedBlockMode = getEffectiveBilibiliFeedBlockMode(site)
   cachedLikePromoMode = getEffectiveBilibiliLikePromoBlockMode(site)
+  cachedDurationConfig = {
+    mode: getEffectiveBilibiliDurationBlockMode(site),
+    minStr: site?.bilibiliDurationMinStr ?? '',
+    maxStr: site?.bilibiliDurationMaxStr ?? '',
+  }
 
   if (site?.presetId !== 'bilibili') {
     stopCleanupObserver()
@@ -100,7 +114,9 @@ async function refreshRuntimeFromStorage(): Promise<void> {
   }
 
   const anyHomeFeedRuleActive =
-    cachedBlockMode !== 'off' || cachedLikePromoMode !== 'off'
+    cachedBlockMode !== 'off' ||
+    cachedLikePromoMode !== 'off' ||
+    cachedDurationConfig.mode !== 'off'
   if (!anyHomeFeedRuleActive) {
     stopCleanupObserver()
     await reportStatus('noMatch')

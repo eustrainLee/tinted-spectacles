@@ -14,12 +14,15 @@ import {
 } from '../lib/storageSchema'
 import {
   getSiteMap,
+  setBilibiliDurationBlockMode,
+  setBilibiliDurationBoundStrings,
   setBilibiliFeedBlockMode,
   setBilibiliLikePromoBlockMode,
   setFabHidden,
   setFabPosition,
 } from '../lib/siteSettings'
 import {
+  getEffectiveBilibiliDurationBlockMode,
   getEffectiveBilibiliFeedBlockMode,
   getEffectiveBilibiliLikePromoBlockMode,
 } from '../rules/bilibili'
@@ -42,6 +45,10 @@ let resizeTimer: number | null = null
 let biliBlockSection: HTMLDivElement | null = null
 let biliBlockSelect: HTMLSelectElement | null = null
 let biliLikePromoSelect: HTMLSelectElement | null = null
+let biliDurationSelect: HTMLSelectElement | null = null
+let biliDurationMinInput: HTMLInputElement | null = null
+let biliDurationMaxInput: HTMLInputElement | null = null
+let durationBoundsDebounceTimer: number | null = null
 
 let storageHostnameKey = ''
 let anchorLeft = 0
@@ -59,6 +66,29 @@ function clearResizeTimer(): void {
     window.clearTimeout(resizeTimer)
     resizeTimer = null
   }
+}
+
+function clearDurationBoundsDebounceTimer(): void {
+  if (durationBoundsDebounceTimer !== null) {
+    window.clearTimeout(durationBoundsDebounceTimer)
+    durationBoundsDebounceTimer = null
+  }
+}
+
+function scheduleDurationBoundsSave(): void {
+  clearDurationBoundsDebounceTimer()
+  durationBoundsDebounceTimer = window.setTimeout(() => {
+    durationBoundsDebounceTimer = null
+    const key = storageHostnameKey
+    if (!key || !biliDurationMinInput || !biliDurationMaxInput) {
+      return
+    }
+    void setBilibiliDurationBoundStrings(
+      key,
+      biliDurationMinInput.value,
+      biliDurationMaxInput.value,
+    )
+  }, 350)
 }
 
 function buildToggleAriaLabel(hostname: string, presetId: SpectacleId): string {
@@ -227,6 +257,7 @@ function isEventInsideFabUi(event: PointerEvent): boolean {
 
 function unmountFloatingAssist(): void {
   clearResizeTimer()
+  clearDurationBoundsDebounceTimer()
   if (mountAbort) {
     mountAbort.abort()
     mountAbort = null
@@ -244,6 +275,9 @@ function unmountFloatingAssist(): void {
   biliBlockSection = null
   biliBlockSelect = null
   biliLikePromoSelect = null
+  biliDurationSelect = null
+  biliDurationMinInput = null
+  biliDurationMaxInput = null
   storageHostnameKey = ''
 }
 
@@ -271,13 +305,24 @@ function updatePanelFromRecord(hostname: string, record: SiteSettingRecord): voi
   if (toggleBtn) {
     toggleBtn.setAttribute('aria-label', buildToggleAriaLabel(hostname, record.presetId))
   }
-  if (biliBlockSection && biliBlockSelect && biliLikePromoSelect) {
+  if (
+    biliBlockSection &&
+    biliBlockSelect &&
+    biliLikePromoSelect &&
+    biliDurationSelect &&
+    biliDurationMinInput &&
+    biliDurationMaxInput
+  ) {
     const isBili = record.presetId === 'bilibili'
     biliBlockSection.hidden = !isBili
     if (isBili) {
       biliBlockSelect.value = getEffectiveBilibiliFeedBlockMode(record)
       biliLikePromoSelect.value =
         getEffectiveBilibiliLikePromoBlockMode(record)
+      biliDurationSelect.value =
+        getEffectiveBilibiliDurationBlockMode(record)
+      biliDurationMinInput.value = record.bilibiliDurationMinStr ?? ''
+      biliDurationMaxInput.value = record.bilibiliDurationMaxStr ?? ''
     }
   }
 }
@@ -411,6 +456,11 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
       .bili-block-hint {
         color: #a8b0bd;
       }
+      .bili-duration-bounds input {
+        border-color: #3d4450;
+        background: #1e222a;
+        color: #eef1f7;
+      }
     }
     @media (prefers-reduced-motion: reduce) {
       .toggle,
@@ -423,6 +473,9 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
     }
     .bili-block-wrap {
       margin: 0 0 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
     .bili-block-row {
       display: flex;
@@ -431,9 +484,6 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
       gap: 8px;
       font-size: 12px;
       line-height: 1.45;
-    }
-    .bili-block-row + .bili-block-row {
-      margin-top: 6px;
     }
     .bili-block-row__label {
       font-weight: 700;
@@ -454,10 +504,40 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
       padding: 4px 8px;
     }
     .bili-block-hint {
-      margin: 4px 0 0;
+      margin: 0;
       font-size: 11px;
       line-height: 1.35;
       color: #5c6570;
+    }
+    .bili-duration-block {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .bili-duration-bounds {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 0;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .bili-duration-bounds input {
+      flex: 1 1 0;
+      min-width: 0;
+      box-sizing: border-box;
+      border-radius: 6px;
+      border: 1px solid #c9ced6;
+      background: #ffffff;
+      color: #1b1f24;
+      font-size: 11px;
+      padding: 3px 6px;
+    }
+    .bili-duration-bounds span {
+      flex: 0 0 auto;
+      color: #5c6570;
+      font-size: 11px;
     }
   `
   shadowRoot.append(style)
@@ -582,7 +662,64 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
     { signal },
   )
 
-  biliBlockSection.append(biliRow, biliLikePromoRow, biliHint)
+  const biliDurationBlock = document.createElement('div')
+  biliDurationBlock.className = 'bili-duration-block'
+  const biliDurationRow = document.createElement('div')
+  biliDurationRow.className = 'bili-block-row'
+  const biliDurationLabel = document.createElement('span')
+  biliDurationLabel.className = 'bili-block-row__label'
+  biliDurationLabel.textContent = '\u89c6\u9891\u65f6\u957f'
+  biliDurationSelect = document.createElement('select')
+  biliDurationSelect.className = 'bili-block-select'
+  biliDurationSelect.setAttribute(
+    'aria-label',
+    'Bilibili video duration filter mode',
+  )
+  for (const [val, text] of biliModeOptions) {
+    const opt = document.createElement('option')
+    opt.value = val
+    opt.textContent = text
+    biliDurationSelect.append(opt)
+  }
+  biliDurationRow.append(biliDurationLabel, biliDurationSelect)
+  const boundsRow = document.createElement('div')
+  boundsRow.className = 'bili-duration-bounds'
+  biliDurationMinInput = document.createElement('input')
+  biliDurationMinInput.type = 'text'
+  biliDurationMinInput.autocomplete = 'off'
+  biliDurationMinInput.placeholder = 'M:SS or H:MM:SS'
+  biliDurationMinInput.setAttribute('aria-label', 'Minimum video duration')
+  const dashSep = document.createElement('span')
+  dashSep.textContent = '-'
+  biliDurationMaxInput = document.createElement('input')
+  biliDurationMaxInput.type = 'text'
+  biliDurationMaxInput.autocomplete = 'off'
+  biliDurationMaxInput.placeholder = 'M:SS or H:MM:SS'
+  biliDurationMaxInput.setAttribute('aria-label', 'Maximum video duration')
+  boundsRow.append(biliDurationMinInput, dashSep, biliDurationMaxInput)
+  biliDurationBlock.append(biliDurationRow, boundsRow)
+  biliDurationSelect.addEventListener(
+    'change',
+    () => {
+      const v = biliDurationSelect?.value
+      if (v && isBilibiliFeedBlockMode(v)) {
+        void setBilibiliDurationBlockMode(hostname, v)
+      }
+    },
+    { signal },
+  )
+  const onBoundsInput = (): void => {
+    scheduleDurationBoundsSave()
+  }
+  biliDurationMinInput.addEventListener('input', onBoundsInput, { signal })
+  biliDurationMaxInput.addEventListener('input', onBoundsInput, { signal })
+
+  biliBlockSection.append(
+    biliRow,
+    biliLikePromoRow,
+    biliDurationBlock,
+    biliHint,
+  )
 
   panelEl.append(rowSite, rowPreset, biliBlockSection, actions)
 

@@ -23,3 +23,16 @@ export function getEffectiveBilibiliLikePromoBlockMode(
     DEFAULT_BILIBILI_LIKE_PROMO_BLOCK_MODE
   )
 }
+
+/** Duration filter is opt-in; off when unset. */
+export const DEFAULT_BILIBILI_DURATION_BLOCK_MODE: BilibiliFeedBlockMode = 'off'
+
+export function getEffectiveBilibiliDurationBlockMode(
+  record:
+    | { bilibiliDurationBlockMode?: BilibiliFeedBlockMode }
+    | undefined,
+): BilibiliFeedBlockMode {
+  return (
+    record?.bilibiliDurationBlockMode ?? DEFAULT_BILIBILI_DURATION_BLOCK_MODE
+  )
+}

@@ -77,6 +77,27 @@ describe('parseSiteSettingsState', () => {
     expect(parsed.sites['example.com']?.bilibiliFeedBlockMode).toBe('off')
   })
 
+  it('parses bilibiliDurationBlockMode and bound strings', () => {
+    const parsed = parseSiteSettingsState({
+      schemaVersion: 1,
+      sites: {
+        'example.com': {
+          presetId: 'bilibili',
+          fabEnabled: true,
+          fabHidden: false,
+          bilibiliDurationBlockMode: 'remove',
+          bilibiliDurationMinStr: '6:00',
+          bilibiliDurationMaxStr: '15:00',
+        },
+      },
+    })
+    expect(parsed.sites['example.com']?.bilibiliDurationBlockMode).toBe(
+      'remove',
+    )
+    expect(parsed.sites['example.com']?.bilibiliDurationMinStr).toBe('6:00')
+    expect(parsed.sites['example.com']?.bilibiliDurationMaxStr).toBe('15:00')
+  })
+
   it('parses bilibiliLikePromoBlockMode when valid', () => {
     const parsed = parseSiteSettingsState({
       schemaVersion: 1,

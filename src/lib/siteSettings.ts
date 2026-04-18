@@ -1,6 +1,7 @@
 import { normalizeHostname } from './normalizeHostname'
 import type { SpectacleId } from './presets'
 import {
+  BILIBILI_DURATION_INPUT_MAX_CHARS,
   STORAGE_KEY,
   STORAGE_SCHEMA_VERSION,
   parseSiteSettingsState,
@@ -39,6 +40,15 @@ export async function setSiteSpectacle(
         : {}),
       ...(previous?.bilibiliLikePromoBlockMode
         ? { bilibiliLikePromoBlockMode: previous.bilibiliLikePromoBlockMode }
+        : {}),
+      ...(previous?.bilibiliDurationBlockMode
+        ? { bilibiliDurationBlockMode: previous.bilibiliDurationBlockMode }
+        : {}),
+      ...(previous?.bilibiliDurationMinStr !== undefined
+        ? { bilibiliDurationMinStr: previous.bilibiliDurationMinStr }
+        : {}),
+      ...(previous?.bilibiliDurationMaxStr !== undefined
+        ? { bilibiliDurationMaxStr: previous.bilibiliDurationMaxStr }
         : {}),
     }
   }
@@ -124,6 +134,60 @@ export async function setBilibiliLikePromoBlockMode(
   sites[key] = {
     ...existing,
     bilibiliLikePromoBlockMode: mode,
+  }
+  await chrome.storage.local.set({
+    [STORAGE_KEY]: {
+      schemaVersion: STORAGE_SCHEMA_VERSION,
+      sites,
+    },
+  })
+}
+
+export async function setBilibiliDurationBlockMode(
+  hostname: string,
+  mode: BilibiliFeedBlockMode,
+): Promise<void> {
+  const data = await chrome.storage.local.get(STORAGE_KEY)
+  const parsed = parseSiteSettingsState(data[STORAGE_KEY])
+  const sites = { ...parsed.sites }
+  const key = normalizeHostname(hostname)
+  const existing = sites[key]
+  if (!existing || existing.presetId !== 'bilibili') {
+    return
+  }
+  sites[key] = {
+    ...existing,
+    bilibiliDurationBlockMode: mode,
+  }
+  await chrome.storage.local.set({
+    [STORAGE_KEY]: {
+      schemaVersion: STORAGE_SCHEMA_VERSION,
+      sites,
+    },
+  })
+}
+
+export async function setBilibiliDurationBoundStrings(
+  hostname: string,
+  minStr: string,
+  maxStr: string,
+): Promise<void> {
+  const data = await chrome.storage.local.get(STORAGE_KEY)
+  const parsed = parseSiteSettingsState(data[STORAGE_KEY])
+  const sites = { ...parsed.sites }
+  const key = normalizeHostname(hostname)
+  const existing = sites[key]
+  if (!existing || existing.presetId !== 'bilibili') {
+    return
+  }
+  sites[key] = {
+    ...existing,
+    bilibiliDurationMinStr: minStr
+      .trim()
+      .slice(0, BILIBILI_DURATION_INPUT_MAX_CHARS),
+    bilibiliDurationMaxStr: maxStr
+      .trim()
+      .slice(0, BILIBILI_DURATION_INPUT_MAX_CHARS),
   }
   await chrome.storage.local.set({
     [STORAGE_KEY]: {
