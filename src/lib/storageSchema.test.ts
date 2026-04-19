@@ -153,4 +153,25 @@ describe('parseSiteSettingsState', () => {
       'bar',
     ])
   })
+
+  it('parses bilibiliUploaderKeywordBlockMode and patterns array', () => {
+    const parsed = parseSiteSettingsState({
+      schemaVersion: 1,
+      sites: {
+        'example.com': {
+          presetId: 'bilibili',
+          fabEnabled: true,
+          fabHidden: false,
+          bilibiliUploaderKeywordBlockMode: 'clear',
+          bilibiliUploaderKeywordPatterns: ['  up1  ', 'up2'],
+        },
+      },
+    })
+    expect(
+      parsed.sites['example.com']?.bilibiliUploaderKeywordBlockMode,
+    ).toBe('clear')
+    expect(
+      parsed.sites['example.com']?.bilibiliUploaderKeywordPatterns,
+    ).toEqual(['up1', 'up2'])
+  })
 })

@@ -4,7 +4,8 @@
  * - urlContext: where a rule applies (host, pathname).
  * - feedCard: low-level DOM ops on a feed-card target (remove / clear / mark).
  * - homeFeedAdsRule / homeFeedLikePromoRule / homeFeedPartitionRecommendRule /
- *   homeFeedDurationRule / homeFeedTitleKeywordRule: homepage `/` feed rules.
+ *   homeFeedDurationRule / homeFeedTitleKeywordRule /
+ *   homeFeedUploaderKeywordRule: homepage `/` feed rules.
  * Add new files (e.g. videoPageRule.ts) and export here; wire in content script by URL.
  */
 export { BILIBILI_HOST_SUFFIX } from './selectors'
@@ -20,11 +21,13 @@ export {
   DEFAULT_BILIBILI_LIKE_PROMO_BLOCK_MODE,
   DEFAULT_BILIBILI_PARTITION_RECOMMEND_BLOCK_MODE,
   DEFAULT_BILIBILI_TITLE_KEYWORD_BLOCK_MODE,
+  DEFAULT_BILIBILI_UPLOADER_KEYWORD_BLOCK_MODE,
   getEffectiveBilibiliDurationBlockMode,
   getEffectiveBilibiliFeedBlockMode,
   getEffectiveBilibiliLikePromoBlockMode,
   getEffectiveBilibiliPartitionRecommendBlockMode,
   getEffectiveBilibiliTitleKeywordBlockMode,
+  getEffectiveBilibiliUploaderKeywordBlockMode,
 } from './blockMode'
 export { resolveHomeFeedRoot, runHomeFeedAdsRule } from './homeFeedAdsRule'
 export { runHomeFeedLikePromoRule } from './homeFeedLikePromoRule'
@@ -38,3 +41,8 @@ export {
   runHomeFeedTitleKeywordRule,
   type HomeFeedTitleKeywordRuleConfig,
 } from './homeFeedTitleKeywordRule'
+export {
+  findHomeFeedCardUploaderText,
+  runHomeFeedUploaderKeywordRule,
+  type HomeFeedUploaderKeywordRuleConfig,
+} from './homeFeedUploaderKeywordRule'

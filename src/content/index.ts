@@ -13,6 +13,7 @@ import {
   getEffectiveBilibiliLikePromoBlockMode,
   getEffectiveBilibiliPartitionRecommendBlockMode,
   getEffectiveBilibiliTitleKeywordBlockMode,
+  getEffectiveBilibiliUploaderKeywordBlockMode,
   isBilibiliHomeFeedPage,
   isBilibiliHost,
   resolveHomeFeedRoot,
@@ -21,8 +22,10 @@ import {
   runHomeFeedLikePromoRule,
   runHomeFeedPartitionRecommendRule,
   runHomeFeedTitleKeywordRule,
+  runHomeFeedUploaderKeywordRule,
   type HomeFeedDurationRuleConfig,
   type HomeFeedTitleKeywordRuleConfig,
+  type HomeFeedUploaderKeywordRuleConfig,
 } from '../rules/bilibili'
 
 const CLEANUP_DEBOUNCE_MS = 180
@@ -45,6 +48,10 @@ let cachedTitleKeywordConfig: HomeFeedTitleKeywordRuleConfig = {
   mode: getEffectiveBilibiliTitleKeywordBlockMode(undefined),
   patterns: [],
 }
+let cachedUploaderKeywordConfig: HomeFeedUploaderKeywordRuleConfig = {
+  mode: getEffectiveBilibiliUploaderKeywordBlockMode(undefined),
+  patterns: [],
+}
 
 function titleKeywordObserverShouldRun(): boolean {
   if (cachedTitleKeywordConfig.mode === 'off') {
@@ -52,6 +59,15 @@ function titleKeywordObserverShouldRun(): boolean {
   }
   return (
     compileTitleKeywordRegexes(cachedTitleKeywordConfig.patterns).length > 0
+  )
+}
+
+function uploaderKeywordObserverShouldRun(): boolean {
+  if (cachedUploaderKeywordConfig.mode === 'off') {
+    return false
+  }
+  return (
+    compileTitleKeywordRegexes(cachedUploaderKeywordConfig.patterns).length > 0
   )
 }
 
@@ -86,12 +102,17 @@ function runHomeFeedCleanup(root: ParentNode): void {
       root,
       cachedTitleKeywordConfig,
     )
+    const uploaderKwChanged = runHomeFeedUploaderKeywordRule(
+      root,
+      cachedUploaderKeywordConfig,
+    )
     const changed =
       adsChanged +
       likePromoChanged +
       partitionRecommendChanged +
       durationChanged +
-      titleKwChanged
+      titleKwChanged +
+      uploaderKwChanged
     void reportStatus(changed > 0 ? 'ok' : 'noMatch')
   } catch {
     void reportStatus('partialFailure')
@@ -149,6 +170,10 @@ async function refreshRuntimeFromStorage(): Promise<void> {
     mode: getEffectiveBilibiliTitleKeywordBlockMode(site),
     patterns: site?.bilibiliTitleKeywordPatterns ?? [],
   }
+  cachedUploaderKeywordConfig = {
+    mode: getEffectiveBilibiliUploaderKeywordBlockMode(site),
+    patterns: site?.bilibiliUploaderKeywordPatterns ?? [],
+  }
 
   if (site?.presetId !== 'bilibili') {
     stopCleanupObserver()
@@ -161,7 +186,8 @@ async function refreshRuntimeFromStorage(): Promise<void> {
     cachedLikePromoMode !== 'off' ||
     cachedPartitionRecommendMode !== 'off' ||
     cachedDurationConfig.mode !== 'off' ||
-    titleKeywordObserverShouldRun()
+    titleKeywordObserverShouldRun() ||
+    uploaderKeywordObserverShouldRun()
   if (!anyHomeFeedRuleActive) {
     stopCleanupObserver()
     await reportStatus('noMatch')

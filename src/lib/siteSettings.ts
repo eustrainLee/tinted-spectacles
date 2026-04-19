@@ -67,6 +67,18 @@ export async function setSiteSpectacle(
             bilibiliTitleKeywordPatterns: previous.bilibiliTitleKeywordPatterns,
           }
         : {}),
+      ...(previous?.bilibiliUploaderKeywordBlockMode
+        ? {
+            bilibiliUploaderKeywordBlockMode:
+              previous.bilibiliUploaderKeywordBlockMode,
+          }
+        : {}),
+      ...(previous?.bilibiliUploaderKeywordPatterns !== undefined
+        ? {
+            bilibiliUploaderKeywordPatterns:
+              previous.bilibiliUploaderKeywordPatterns,
+          }
+        : {}),
     }
   }
 
@@ -223,6 +235,54 @@ export async function setBilibiliTitleKeywordPatterns(
   sites[key] = {
     ...existing,
     bilibiliTitleKeywordPatterns: sanitizeTitleKeywordPatterns(patterns),
+  }
+  await chrome.storage.local.set({
+    [STORAGE_KEY]: {
+      schemaVersion: STORAGE_SCHEMA_VERSION,
+      sites,
+    },
+  })
+}
+
+export async function setBilibiliUploaderKeywordBlockMode(
+  hostname: string,
+  mode: BilibiliFeedBlockMode,
+): Promise<void> {
+  const data = await chrome.storage.local.get(STORAGE_KEY)
+  const parsed = parseSiteSettingsState(data[STORAGE_KEY])
+  const sites = { ...parsed.sites }
+  const key = normalizeHostname(hostname)
+  const existing = sites[key]
+  if (!existing || existing.presetId !== 'bilibili') {
+    return
+  }
+  sites[key] = {
+    ...existing,
+    bilibiliUploaderKeywordBlockMode: mode,
+  }
+  await chrome.storage.local.set({
+    [STORAGE_KEY]: {
+      schemaVersion: STORAGE_SCHEMA_VERSION,
+      sites,
+    },
+  })
+}
+
+export async function setBilibiliUploaderKeywordPatterns(
+  hostname: string,
+  patterns: string[],
+): Promise<void> {
+  const data = await chrome.storage.local.get(STORAGE_KEY)
+  const parsed = parseSiteSettingsState(data[STORAGE_KEY])
+  const sites = { ...parsed.sites }
+  const key = normalizeHostname(hostname)
+  const existing = sites[key]
+  if (!existing || existing.presetId !== 'bilibili') {
+    return
+  }
+  sites[key] = {
+    ...existing,
+    bilibiliUploaderKeywordPatterns: sanitizeTitleKeywordPatterns(patterns),
   }
   await chrome.storage.local.set({
     [STORAGE_KEY]: {

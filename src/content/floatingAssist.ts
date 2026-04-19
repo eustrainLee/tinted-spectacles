@@ -25,6 +25,8 @@ import {
   setBilibiliPartitionRecommendBlockMode,
   setBilibiliTitleKeywordBlockMode,
   setBilibiliTitleKeywordPatterns,
+  setBilibiliUploaderKeywordBlockMode,
+  setBilibiliUploaderKeywordPatterns,
   setFabHidden,
   setFabPosition,
 } from '../lib/siteSettings'
@@ -34,6 +36,7 @@ import {
   getEffectiveBilibiliLikePromoBlockMode,
   getEffectiveBilibiliPartitionRecommendBlockMode,
   getEffectiveBilibiliTitleKeywordBlockMode,
+  getEffectiveBilibiliUploaderKeywordBlockMode,
 } from '../rules/bilibili'
 
 const HOST_ID = 'tinted-spectacles-fab-host'
@@ -63,6 +66,10 @@ let biliTitleKwSelect: HTMLSelectElement | null = null
 let biliTitleKwDetails: HTMLDetailsElement | null = null
 let biliTitleKwListEl: HTMLDivElement | null = null
 let biliTitleKwAddInput: HTMLInputElement | null = null
+let biliUpKwSelect: HTMLSelectElement | null = null
+let biliUpKwDetails: HTMLDetailsElement | null = null
+let biliUpKwListEl: HTMLDivElement | null = null
+let biliUpKwAddInput: HTMLInputElement | null = null
 
 let storageHostnameKey = ''
 let anchorLeft = 0
@@ -297,6 +304,10 @@ function unmountFloatingAssist(): void {
   biliTitleKwDetails = null
   biliTitleKwListEl = null
   biliTitleKwAddInput = null
+  biliUpKwSelect = null
+  biliUpKwDetails = null
+  biliUpKwListEl = null
+  biliUpKwAddInput = null
   storageHostnameKey = ''
 }
 
@@ -328,6 +339,37 @@ function fillTitleKeywordPatternList(patterns: string[]): void {
     })
     row.append(span, del)
     biliTitleKwListEl!.append(row)
+  })
+}
+
+function fillUploaderKeywordPatternList(patterns: string[]): void {
+  if (!biliUpKwListEl) {
+    return
+  }
+  biliUpKwListEl.replaceChildren()
+  const host = storageHostnameKey
+  patterns.forEach((pat, index) => {
+    const row = document.createElement('div')
+    row.className = 'bili-title-kw-item'
+    const span = document.createElement('span')
+    span.className = 'bili-title-kw-item__text'
+    span.textContent = pat
+    span.title = pat
+    const del = document.createElement('button')
+    del.type = 'button'
+    del.className = 'bili-title-kw-item__del'
+    del.textContent = '\u5220\u9664'
+    del.setAttribute('aria-label', 'Remove uploader pattern')
+    del.addEventListener('click', () => {
+      void (async () => {
+        const map = await getSiteMap()
+        const cur = map[host]?.bilibiliUploaderKeywordPatterns ?? []
+        const next = cur.filter((_, i) => i !== index)
+        await setBilibiliUploaderKeywordPatterns(host, next)
+      })()
+    })
+    row.append(span, del)
+    biliUpKwListEl!.append(row)
   })
 }
 
@@ -365,7 +407,10 @@ function updatePanelFromRecord(hostname: string, record: SiteSettingRecord): voi
     biliDurationMaxInput &&
     biliTitleKwSelect &&
     biliTitleKwListEl &&
-    biliTitleKwAddInput
+    biliTitleKwAddInput &&
+    biliUpKwSelect &&
+    biliUpKwListEl &&
+    biliUpKwAddInput
   ) {
     const isBili = record.presetId === 'bilibili'
     biliBlockSection.hidden = !isBili
@@ -383,6 +428,12 @@ function updatePanelFromRecord(hostname: string, record: SiteSettingRecord): voi
         getEffectiveBilibiliTitleKeywordBlockMode(record)
       fillTitleKeywordPatternList(record.bilibiliTitleKeywordPatterns ?? [])
       biliTitleKwAddInput.value = ''
+      biliUpKwSelect.value =
+        getEffectiveBilibiliUploaderKeywordBlockMode(record)
+      fillUploaderKeywordPatternList(
+        record.bilibiliUploaderKeywordPatterns ?? [],
+      )
+      biliUpKwAddInput.value = ''
     }
   }
 }
@@ -938,12 +989,12 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
   biliTitleKwModeRow.className = 'bili-block-row'
   const biliTitleKwLabel = document.createElement('span')
   biliTitleKwLabel.className = 'bili-block-row__label'
-  biliTitleKwLabel.textContent = '\u89c6\u9891\u6807\u9898'
+  biliTitleKwLabel.textContent = '\u5c4f\u853d\u6807\u9898'
   biliTitleKwSelect = document.createElement('select')
   biliTitleKwSelect.className = 'bili-block-select'
   biliTitleKwSelect.setAttribute(
     'aria-label',
-    'Bilibili video title keyword block mode',
+    'Bilibili title keyword block mode',
   )
   for (const [val, text] of biliModeOptions) {
     const opt = document.createElement('option')
@@ -967,7 +1018,7 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
   biliTitleKwDetails.className = 'bili-title-kw-details'
   const biliTitleKwSummary = document.createElement('summary')
   biliTitleKwSummary.textContent =
-    '\u6807\u9898\u5c4f\u853d\u8bcd\u5217\u8868'
+    '\u5c4f\u853d\u6807\u9898\u8bcd\u5217\u8868'
   const biliTitleKwPanel = document.createElement('div')
   biliTitleKwPanel.className = 'bili-title-kw-panel'
   biliTitleKwListEl = document.createElement('div')
@@ -1022,12 +1073,102 @@ function mountFloatingAssist(hostname: string, record: SiteSettingRecord): void 
   biliTitleKwDetails.append(biliTitleKwSummary, biliTitleKwPanel)
   biliTitleKwBlock.append(biliTitleKwModeRow, biliTitleKwDetails)
 
+  const biliUpKwBlock = document.createElement('div')
+  biliUpKwBlock.className = 'bili-title-kw-block'
+  const biliUpKwModeRow = document.createElement('div')
+  biliUpKwModeRow.className = 'bili-block-row'
+  const biliUpKwLabel = document.createElement('span')
+  biliUpKwLabel.className = 'bili-block-row__label'
+  biliUpKwLabel.textContent = '\u5c4f\u853d\u0020\u0055\u0050'
+  biliUpKwSelect = document.createElement('select')
+  biliUpKwSelect.className = 'bili-block-select'
+  biliUpKwSelect.setAttribute(
+    'aria-label',
+    'Bilibili uploader keyword block mode',
+  )
+  for (const [val, text] of biliModeOptions) {
+    const opt = document.createElement('option')
+    opt.value = val
+    opt.textContent = text
+    biliUpKwSelect.append(opt)
+  }
+  biliUpKwModeRow.append(biliUpKwLabel, biliUpKwSelect)
+  biliUpKwSelect.addEventListener(
+    'change',
+    () => {
+      const v = biliUpKwSelect?.value
+      if (v && isBilibiliFeedBlockMode(v)) {
+        void setBilibiliUploaderKeywordBlockMode(hostname, v)
+      }
+    },
+    { signal },
+  )
+
+  biliUpKwDetails = document.createElement('details')
+  biliUpKwDetails.className = 'bili-title-kw-details'
+  const biliUpKwSummary = document.createElement('summary')
+  biliUpKwSummary.textContent = '\u0055\u0050\u5c4f\u853d\u8bcd\u5217\u8868'
+  const biliUpKwPanel = document.createElement('div')
+  biliUpKwPanel.className = 'bili-title-kw-panel'
+  biliUpKwListEl = document.createElement('div')
+  biliUpKwListEl.className = 'bili-title-kw-list'
+  const biliUpKwAddRow = document.createElement('div')
+  biliUpKwAddRow.className = 'bili-title-kw-add'
+  biliUpKwAddInput = document.createElement('input')
+  biliUpKwAddInput.type = 'text'
+  biliUpKwAddInput.autocomplete = 'off'
+  biliUpKwAddInput.maxLength = BILIBILI_TITLE_KEYWORD_PATTERN_MAX_CHARS
+  biliUpKwAddInput.placeholder = 'Regex or plain text'
+  biliUpKwAddInput.setAttribute('aria-label', 'New uploader keyword pattern')
+  const biliUpKwAddBtn = document.createElement('button')
+  biliUpKwAddBtn.type = 'button'
+  biliUpKwAddBtn.className = 'btn-add'
+  biliUpKwAddBtn.textContent = '\u6dfb\u52a0'
+  const submitUploaderKeywordPattern = (): void => {
+    void (async () => {
+      const key = storageHostnameKey
+      const raw = biliUpKwAddInput?.value.trim() ?? ''
+      if (!raw || !key) {
+        return
+      }
+      const map = await getSiteMap()
+      const cur = map[key]?.bilibiliUploaderKeywordPatterns ?? []
+      if (cur.length >= BILIBILI_TITLE_KEYWORD_MAX_PATTERNS) {
+        return
+      }
+      const next = [...cur, raw]
+      await setBilibiliUploaderKeywordPatterns(key, next)
+      if (biliUpKwAddInput) {
+        biliUpKwAddInput.value = ''
+      }
+    })()
+  }
+  biliUpKwAddBtn.addEventListener('click', submitUploaderKeywordPattern, {
+    signal,
+  })
+  biliUpKwAddInput.addEventListener(
+    'keydown',
+    (event) => {
+      if (event.key !== 'Enter' || event.isComposing) {
+        return
+      }
+      event.preventDefault()
+      submitUploaderKeywordPattern()
+    },
+    { signal },
+  )
+  biliUpKwAddRow.append(biliUpKwAddInput, biliUpKwAddBtn)
+  biliUpKwPanel.append(biliUpKwListEl, biliUpKwAddRow)
+  biliUpKwDetails.append(biliUpKwSummary, biliUpKwPanel)
+  biliUpKwBlock.append(biliUpKwModeRow, biliUpKwDetails)
+
   biliBlockSection.append(
     biliRow,
     biliLikePromoRow,
     biliPartitionRecommendRow,
     biliDurationBlock,
     biliTitleKwBlock,
+    biliUpKwBlock,
     biliHint,
   )
 

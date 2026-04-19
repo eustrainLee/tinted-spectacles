@@ -66,3 +66,18 @@ export function getEffectiveBilibiliTitleKeywordBlockMode(
     DEFAULT_BILIBILI_TITLE_KEYWORD_BLOCK_MODE
   )
 }
+
+/** Uploader (UP) name block is opt-in; off when unset. */
+export const DEFAULT_BILIBILI_UPLOADER_KEYWORD_BLOCK_MODE: BilibiliFeedBlockMode =
+  'off'
+
+export function getEffectiveBilibiliUploaderKeywordBlockMode(
+  record:
+    | { bilibiliUploaderKeywordBlockMode?: BilibiliFeedBlockMode }
+    | undefined,
+): BilibiliFeedBlockMode {
+  return (
+    record?.bilibiliUploaderKeywordBlockMode ??
+    DEFAULT_BILIBILI_UPLOADER_KEYWORD_BLOCK_MODE
+  )
+}

@@ -46,6 +46,10 @@ export interface SiteSettingRecord {
   bilibiliTitleKeywordBlockMode?: BilibiliFeedBlockMode
   /** Stored title patterns; each compiled as RegExp with flag `iu`. */
   bilibiliTitleKeywordPatterns?: string[]
+  /** Bilibili: block feed cards when uploader display name matches any pattern. */
+  bilibiliUploaderKeywordBlockMode?: BilibiliFeedBlockMode
+  /** Stored uploader-name patterns; each compiled as RegExp with flag `iu`. */
+  bilibiliUploaderKeywordPatterns?: string[]
 }
 
 export interface SiteSettingsState {
@@ -144,6 +148,18 @@ function parseSiteRecord(value: unknown): SiteSettingRecord | null {
     ? sanitizeTitleKeywordPatterns(titleKwPatternsRaw)
     : undefined
 
+  const uploaderKwModeRaw = value.bilibiliUploaderKeywordBlockMode
+  const bilibiliUploaderKeywordBlockMode = isBilibiliFeedBlockMode(
+    uploaderKwModeRaw,
+  )
+    ? uploaderKwModeRaw
+    : undefined
+
+  const uploaderKwPatternsRaw = value.bilibiliUploaderKeywordPatterns
+  const bilibiliUploaderKeywordPatterns = Array.isArray(uploaderKwPatternsRaw)
+    ? sanitizeTitleKeywordPatterns(uploaderKwPatternsRaw)
+    : undefined
+
   return {
     presetId: presetIdRaw,
     fabEnabled,
@@ -176,6 +192,17 @@ function parseSiteRecord(value: unknown): SiteSettingRecord | null {
     ...(Array.isArray(titleKwPatternsRaw)
       ? {
           bilibiliTitleKeywordPatterns: bilibiliTitleKeywordPatterns ?? [],
+        }
+      : {}),
+    ...(bilibiliUploaderKeywordBlockMode
+      ? {
+          bilibiliUploaderKeywordBlockMode: bilibiliUploaderKeywordBlockMode,
+        }
+      : {}),
+    ...(Array.isArray(uploaderKwPatternsRaw)
+      ? {
+          bilibiliUploaderKeywordPatterns:
+            bilibiliUploaderKeywordPatterns ?? [],
         }
       : {}),
   }
